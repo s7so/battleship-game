@@ -1,0 +1,217 @@
+              EE202: Object-Oriented Computer Programming
+                         (Fall-2025) -Term Project
+              Design and Implementation of a Battleship Game
+
+
+
+Objective
+The objective of this project is to design and develop a graphical version of the classic
+"Battleship" game using Python and the PyQt framework. The game will follow object
+oriented programming (OOP) principles, with modular class-based design. The game will
+focus on a single-player mode where the user competes against an AI opponent. The
+graphical user interface (GUI) will provide an engaging and interactive experience.
+
+Project Requirements
+The project has the following core requirements:
+   1. Language & Frameworks:
+      •   Python 3.x as the programming language.
+      •   PyQt5 or PyQt6 for building the graphical user interface.
+      •   Object-Oriented Programming (OOP) principles, including well-defined classes and
+          methods.
+
+
+   2. Core Game Features:
+      •   Game Mode:
+          •   Single-Player vs AI Mode: The player faces a computer-controlled AI opponent.
+
+      •   Game Setup:
+          •   The player and the AI will each have a 10x10 grid for placing ship.
+          •   Ship types and sizes: The game includes 5 types of ships with different sizes,
+              Aircraft Carrier (5 cells), Battleship (4 cells), Submarine (3 cells), Destroyer (3
+              cells), and Patrol Boat (2 cells).
+          •   The player and AI will take turns to attack by selecting coordinates on the
+              opponent’s grid. The game ends when all ships of either the player or the AI are
+              destroyed.
+      •   Game Flow:
+          •   The game begins with a setup screen allowing the player to start a new game,
+              view instructions, or exit.
+          •   The player can manually place ships or use a random ship placement feature.
+          •   Turns alternate between the player and the AI until one player’s ships are all
+              destroyed
+3. GUI Key Components:
+
+  •   Main Window:
+      •   The main window will feature two grids: one for the player's ships and one for
+          targeting the opponent's grid, the AI.
+      •   A menu or button layout should allow the player to start a new game, view
+          instructions, or exit.
+  •   Game Grids:
+      •   Player Grid: Displays the player’s ships and shows where the AI has attacked,
+          using markers for hits or misses.
+      •   Opponent Grid: For attacking the AI's ships. The player clicks on cells to target
+          the AI’s ships.
+      •   Visual Representation:
+              o Clear distinction for ships, hits (red marker), and misses (white marker) on
+                  both grids.
+              o Both grids update dynamically to reflect hits, misses, and sunk ships.
+  •   Buttons and Controls:
+      •   New Game Button: Starts a new game and initializes the grids for both the player
+          and the AI.
+      •   Random Ship Placement Button: Automatically places the player’s ships on their
+          grid.
+      •   Fire Button: Allows the player to confirm an attack on the opponent’s grid after
+          selecting a coordinate.
+      •   End Game/Restart Button: Enables restarting the game or exiting after the match
+          ends.
+  •   Status Display:
+      •   A status label to indicate the current player's turn (Player or AI).
+      •   Messages to inform the player of hits, misses, or if a ship has been sunk.
+      •   Display the game result (e.g., "You Win!" or "AI Wins!") when all ships of one side
+          are destroyed.
+  •   Ship Placement Interaction:
+      •   During the ship placement phase, the player can drag and drop ships onto their
+          grid or manually select cells for each ship.
+      •   Ships will align to the grid, and invalid placements (e.g., overlapping or out-of-
+          bounds) will be disallowed with visual feedback.
+  •   AI Opponent:
+      •   The AI will randomly place its ships on the grid and make strategic random moves
+          to attack the player’s ships.
+      •   The AI’s actions (ship placement and attack) will be hidden from the player until
+          revealed through successful hits.
+      •   The AI will automatically handle its turns after the player’s move, with visual
+          feedback on the player’s grid for hits or misses.
+   •   Instructions/Help Screen:
+       •    Provide a rules screen accessible from the main menu or during gameplay.
+       •    The instructions should explain how to place ships, how turns work, and the rules
+            for winning.
+
+4. Game Flow:
+   •   Single-Player Mode vs AI:
+       1. The player chooses to start a new game.
+       2. The player places their ships manually or randomly.
+       3. The AI places its ships randomly on its grid.
+       4. Turns alternate between the player and the AI. The player selects a target on the
+          AI’s grid, while the AI automatically selects a target on the player's grid.
+       5. The game continues until one side’s ships are all destroyed.
+       6. The game ends, and the result is displayed (win or loss), with an option to restart.
+
+5. Data Management:
+   Implement a robust data management system that securely stores players
+   information using an SQLite database. This approach will effectively manage
+   user data within the application.
+
+6. Class Structure
+   The game should be structured into different classes for example:
+
+   •   Player Class:
+       •     Represents the human player, storing information about the player’s grid, ship
+            positions, and attack history.
+       •    Includes methods for placing ships and selecting attack coordinates.
+   •   AI Class (Computer Player):
+       •    Represents the AI player, handling the logic for placing ships and selecting attack
+            coordinates.
+       •    Implements basic and advanced AI strategies for attacking the player’s grid.
+   •   Ship Class:
+       • Represents an individual ship, with properties like type, size, orientation, and
+       health.
+       • Methods to track damage and check if the ship has been sunk
+   •   Grid Class:
+       • Represents a 10x10 grid for both the player and the AI, with methods for placing
+       ships, validating ship placement, and tracking hits and misses.
+   •   Game Class:
+       • Manages the overall state of the game, including the setup phase, turn alternation,
+       and game-ending conditions.
+       • Handles game logic for alternating between the player and the AI.
+   •   GUI Class (PyQt Window):
+       • Manages the graphical interface, including grid displays, buttons, and player
+       interaction.
+       • Updates visual elements based on game state (e.g., marking hits and misses,
+       updating the turn status).
+       •   Handles input from the player for ship placement and attacks.
+   •   Main Application Class:
+       • The entry point of the game, responsible for initializing the game logic and starting
+       the PyQt application event loop.
+
+7. Additional Features:
+
+   You should complete any two of the following additional features:
+
+       •   Sound Effects and Background Music: Sound effects for placing ships, firing,
+           hitting, and sinking ships, along with optional background music to enhance the
+           user experience.
+       •   Settings Menu: Allow players to adjust settings such a grid size (15X15), sound
+           and music volume.
+       •   Advanced AI Strategies: Allow the AI to employ more advanced strategies for
+           selecting attack coordinates (e.g., targeting adjacent cells after a hit).
+
+
+8. Deliverable:
+
+   You need to submit a program written in Python. In addition, you need to write a
+   detailed report explaining your design choices and decisions. The report should
+   show your hidden efforts in producing a good GUI Application. The report should
+   be word-processed according to the presentation of the technical work checklist
+   (PTWC) that you are familiar with from the design courses.
+
+   Each team member must separately do their programming obligations. Then, you
+   should discuss each concept and implementation at a meeting. Finally, you should
+   combine your efforts depending on the optimal options to maximize your outcomes.
+
+   The report should provide detailed documentation covering the design,
+   implementation, and testing of Battleship game. Include explanations of key
+   features, code snippets, screenshots of the game, and any challenges
+   encountered during development
+
+   The report should also include a table that certifies whether a team member was
+   able to complete the programming tasks on their own (Yes/NO). Furthermore, the
+   table must summarize the work that each team member did or contributed to the
+   final version, with one column for the overall amount of effort as a percentage per
+   member.
+                               Table-1: Example of the work distribution table
+                       Tasks / Members                    M1         M2            M3      M4         M5
+                              Task #1                    20%        20%        10%        30%        20%
+                              Task #2                    15%        15%        30%        15%        25%
+                              Task #3                    20%        25%        15%        35%         5%
+                              Task #4                    15%        20%        15%        10%        40%
+                              Task #5                    20%        20%        20%        20%        20%
+                              Task #6                    30%        20%        20%        10%        20%
+                                Total                    20%        20%        18%       20%        22%
+
+  9. Presentation:
+
+      Finally, you need to prepare a short PowerPoint presentation (10-15 minutes) to
+      summarize your work and show your efforts. During the presentation, you need to
+      demonstrate your working design with a code example that uses as many features
+      as you see fit. Highlight the game's features, functionality, user interface, and
+      future enhancements.
+
+  10.           Project Rubric
+Application Functionality and User
+                                           Code Quality and Documentation (8)               Presentation (3)
+          Experience (14)
+                                                                                         Presentation Skills
+   Single Player vs AI Mode          10          No runtime exceptions              10
+                                                                                           and Ability to
+   Ship Placement (manual or                                                              Demonstrate the
+             random)                 10                 Clean code                  10      Application        10
+    AI Logic (intelligent attack          All variables have meaningful names
+             strategy)               10     related to the values it is holding.    10
+Game Flow (clear status display,          Documentation of Game Logic, GUI,
+alternating turns, end conditions)   10               and AI Strategy               10
+ Graphical Interface (ships, hits,
+    misses displayed clearly)        10
+    main class responsible for
+     managing all application
+  functionalities and generating
+               reports               10
+          setting menu               10
+      SQLite database                10
+Sound Effects and Background
+       Music (bonus)
+
+
+  10. Submission
+
+      All deliverables should be submitted by Thursday 28/11/2024. Project Discussions
+      will start from Sunday 01/12/2024.
+
