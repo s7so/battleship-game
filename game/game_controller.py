@@ -125,39 +125,95 @@ class GameController:
         return result
         
     def process_ai_turn(self) -> Dict[str, Any]:
-        """Process AI's turn and return the result"""
+        """معالجة دور AI"""
         if self.game_state != 'playing' or self.current_turn != 'ai':
             return {'valid': False, 'message': 'Not AI turn'}
-            
-        position = self.ai_player.get_shot_position()
-        hit, sunk_ship = self.player.receive_shot(position)
         
-        result = {
-            'valid': True,
-            'position': position,
-            'hit': hit,
-            'sunk': sunk_ship is not None,
-            'ship_name': sunk_ship.name if sunk_ship else None,
-            'game_over': False,
-            'message': ''
-        }
-        
-        if hit:
-            result['message'] = f"AI Hit! "
-            if sunk_ship:
-                result['message'] += f"AI sunk your {sunk_ship.name}!"
-        else:
-            result['message'] = "AI Missed!"
+        try:
+            # الحصول على موقع الهجوم
+            position = self.ai_player.get_shot_position()
             
-        if self.player.all_ships_sunk():
-            self.end_game('ai')
-            result['game_over'] = True
-            result['winner'] = 'ai'
-        else:
-            self.current_turn = 'player'
+            # التحقق من صحة الموقع
+            if not isinstance(position, tuple) or len(position) != 2:
+                position = (0, 0)  # موقع افتراضي آمن
             
-        return result
-        
+            # التأكد من أن الموقع داخل حدود الشبكة
+            row, col = position
+            if not (0 <= row < self.grid_size and 0 <= col < self.grid_size):
+                position = (0, 0)  # موقع افتراضي آمن
+            
+            # تنفيذ الهجوم
+            hit, sunk_ship = self.player.receive_shot(position)
+            
+            # إعداد النتيجة
+            result = {
+                'valid': True,
+                'position': position,
+                'hit': hit,
+                'sunk': sunk_ship is not None,
+                'ship_name': sunk_ship.name if sunk_ship else None,
+                'game_over': False,
+                'message': ''
+            }
+            
+            # تحديث الرسالة
+            if hit:
+                result['message'] = "AI Hit! "
+                if sunk_ship:
+                    result['message'] += f"AI sunk your {sunk_ship.name}!"
+            else:
+                result['message'] = "AI Missed!"
+            
+            # التحقق من انتهاء اللعبة
+            if self.player.all_ships_sunk():
+                self.end_game('ai')
+                result['game_over'] = True
+                result['winner'] = 'ai'
+            else:
+                self.current_turn = 'player'
+            
+            return result
+            
+        except Exception as e:
+            print(f"Error in AI turn: {e}")
+            # إرجاع نتيجة آمنة في حالة الخطأ
+            return {
+                'valid': True,
+                'position': (0, 0),
+                'hit': False,
+                'message': "AI Missed!",
+                'game_over': False
+            }
+
+    def _is_valid_position(self, position: Tuple[int, int]) -> bool:
+        """
+        التحقق من صحة موقع الهجوم
+        Args:
+            position: موقع الهجوم (صف، عمود)
+        Returns:
+            bool: True إذا كان الموقع صالح
+        """
+        row, col = position
+        return (0 <= row < self.grid_size and 
+                0 <= col < self.grid_size and 
+                self.get_cell_state(True, position) != 'hit' and
+                self.get_cell_state(True, position) != 'miss')
+
+    def _get_valid_random_position(self) -> Tuple[int, int]:
+        """
+        الحصول على موقع عشوائي صالح للهجوم
+        Returns:
+            Tuple[int, int]: موقع صالح (صف، عمود)
+        """
+        import random
+        valid_positions = [
+            (row, col) 
+            for row in range(self.grid_size) 
+            for col in range(self.grid_size)
+            if self._is_valid_position((row, col))
+        ]
+        return random.choice(valid_positions) if valid_positions else (0, 0)
+
     def end_game(self, winner: str = None):
         """End the game and update statistics"""
         self.game_state = 'ended'

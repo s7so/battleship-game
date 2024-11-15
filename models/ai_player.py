@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional, Set
+from typing import Tuple, Optional, Set
 import random
 from .player import Player
 from .ship import Ship
@@ -87,7 +87,7 @@ class AIPlayer(Player):
    - متوسط عدد الطلقات لإغراق سفينة
    - نسبة الإصابات الناجحة
    - كفاءة التتبع بعد الإصابة الأولى
-   - سرعة اكتشاف وإغراق السفن
+   - سرعة اتشاف وإغراق السفن
 
    7. التحسينات المستمرة (Continuous Improvements)
    ---------------------------------------------
@@ -107,68 +107,60 @@ class AIPlayer(Player):
         self.first_hit = None                       # أول إصابة في السفينة الحالية
         
     def get_shot_position(self) -> Tuple[int, int]:
-        """
-        تحديد موقع الطلقة التالية باستخدام استراتيجية متقدمة.
-        
-        الخوارزمية:
-        1. إذا كان في وضع التتبع (hunting_mode):
-           - استخدام استراتيجية التتبع الموجه
-           - محاولة إغراق السفينة المكتشفة
-        
-        2. إذا كان لديه أهداف محتملة:
-           - اختيار الهدف الأعلى احتمالية
-           - الأهداف المجاورة للإصابات السابقة
-        
-        3. في حالة عدم وجود معلومات:
-           - استخدام نمط رقعة الشطرنج للطلقات العشوائية
-           - تحسين فرص العثور على سفينة جديدة
-        
-        Returns:
-            Tuple[int, int]: إحداثيات الموقع المستهدف (صف، عمود)
-        """
-        if self.hunting_mode:
-            return self._get_hunting_shot()
-        if self.potential_targets:
-            return self._get_smart_target()
-        return self._get_random_shot()
-                
-    def receive_shot(self, position: Tuple[int, int]) -> Tuple[bool, Optional['Ship']]:
-        """
-        معالجة استقبال طلقة وتحديث استراتيجية AI.
-        
-        عملية التحديث:
-        1. عند إصابة سفينة:
-           - تفعيل وضع التتبع إذا لم يكن مفعلاً
-           - تحديث قائمة الإصابات
-           - تحديث الأهداف المحتملة
-        
-        2. عند إغراق سفينة:
-           - إعادة تعيين وضع التتبع
-           - إزالة الأهداف المحتملة حول السفينة الغارقة
-           - الانتقال للبحث عن سفينة جديدة
-        
-        Args:
-            position: موقع الطلقة
-        Returns:
-            Tuple[bool, Optional[Ship]]: (نجاح الإصابة، السفينة إذا غرقت)
-        """
-        hit, ship = super().receive_shot(position)
-        
+        """تحديد موقع الطلقة التالية"""
+        try:
+            # التحقق من صحة الحالة
+            if not hasattr(self, 'grid') or not self.grid:
+                raise ValueError("Grid not initialized")
+
+            # اختيار الاستراتيجية المناسبة
+            if self.hunting_mode and self.hit_positions:
+                position = self._get_hunting_shot()
+            elif self.potential_targets:
+                position = self._get_smart_target()
+            else:
+                position = self._get_random_shot()
+
+            # التحقق من صحة الموقع
+            if not self._is_valid_target(position):
+                position = self._get_safe_random_shot()
+
+            return position
+
+        except Exception as e:
+            print(f"Error in get_shot_position: {e}")
+            return self._get_safe_random_shot()
+
+    def _get_safe_random_shot(self) -> Tuple[int, int]:
+        """الحصول على موقع عشوائي آمن"""
+        available = [
+            (r, c) 
+            for r in range(self.grid.size) 
+            for c in range(self.grid.size)
+            if self._is_valid_target((r, c))
+        ]
+        return random.choice(available) if available else (0, 0)
+
+    def update_strategy(self, hit: bool, position: Tuple[int, int]):
+        """تحديث الاستراتيجية بعد كل طلقة"""
         if hit:
-            if not ship:  # إصابة بدون غرق
-                if not self.hunting_mode:
-                    self.first_hit = position
-                    self.hunting_mode = True
-                self.hit_positions.add(position)
-                self._update_potential_targets(position)
-            else:  # غرق السفينة
+            if not self.hunting_mode:
+                self.hunting_mode = True
+                self.first_hit = position
+            self.hit_positions.add(position)
+            self._update_potential_targets(position)
+        else:
+            if self.hunting_mode:
+                self._adjust_hunting_strategy()
+
+    def _adjust_hunting_strategy(self):
+        """تعديل استراتيجية التتبع"""
+        if self.hunt_direction:
+            # تغيير الاتجاه إذا فشلت المحاولة الحالية
+            self.hunt_direction = self._get_perpendicular_direction()
+            if not self._get_next_directional_shot():
                 self._reset_hunting()
-                self.potential_targets = [
-                    pos for pos in self.potential_targets 
-                    if not self._is_adjacent_to_sunk_ship(pos, ship)
-                ]
-        return hit, ship
-        
+
     def _get_hunting_shot(self) -> Tuple[int, int]:
         """
         تحديد الطلقة التالية في وضع التتبع.
@@ -426,9 +418,12 @@ class AIPlayer(Player):
         self.first_hit = None
         self.hit_positions.clear()
         
-    def _is_adjacent_to_sunk_ship(self, pos: Tuple[int, int], ship) -> bool:
+    def _is_adjacent_to_sunk_ship(self, pos: Tuple[int, int], ship: Ship) -> bool:
         """
         التحقق مما إذا كان الموقع مجاوراً لسفينة غارقة
+        Args:
+            pos: الموقع المراد فحصه
+            ship: السفينة الغارقة
         """
         for ship_pos in ship.position:
             if abs(pos[0] - ship_pos[0]) <= 1 and abs(pos[1] - ship_pos[1]) <= 1:
