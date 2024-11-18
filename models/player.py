@@ -6,46 +6,50 @@ from utils.constants import SHIPS
 
 class Player:
     """
-    فئة تمثل اللاعب في لعبة Battleship
-    مسؤولة عن:
-    - إدارة شبكة اللاعب
-    - وضع السفن
-    - تتبع الطلقات والإصابات
+    الفئة دي بتمثل اللاعب في لعبة Battleship.
+    الفئة دي مسؤولة عن:
+    - إدارة شبكة اللاعب (اللوحة اللي بيتم وضع السفن عليها)
+    - وضع السفن على الشبكة
+    - متابعة الطلقات اللي اتضربت والإصابات اللي حصلت
     """
     
     def __init__(self, grid_size: int = 10):
         """
-        تهيئة اللاعب
-        Args:
-            grid_size: حجم الشبكة (10×10 أو 15×15)
+        دي دالة البداية للاعب.
+        بتعمل شبكة (لوحة) عشان اللاعب يحط السفن عليها.
+        
+        المدخلات:
+            grid_size: حجم الشبكة (ممكن تكون 10x10 أو 15x15)
         """
         self.grid = Grid(grid_size)                      # شبكة اللاعب
-        self.shots: List[Tuple[int, int]] = []          # قائمة الطلقات
-        self.remaining_ships = list(SHIPS.items())       # السفن المتبقية للوضع
-        self.placed_ships: Dict[str, Ship] = {}         # السفن التي تم وضعها
+        self.shots: List[Tuple[int, int]] = []          # قائمة لمتابعة الطلقات اللي اتضربت
+        self.remaining_ships = list(SHIPS.items())       # السفن اللي لسه متحطتش على الشبكة
+        self.placed_ships: Dict[str, Ship] = {}         # السفن اللي اتحطت على الشبكة
 
     def place_ship(self, ship_name: str, size: int, start_pos: Tuple[int, int], 
                   orientation: str) -> bool:
         """
-        وضع سفينة في موقع محدد
-        Args:
+        الدالة دي بتحط سفينة على الشبكة في مكان محدد.
+        
+        المدخلات:
             ship_name: اسم السفينة
-            size: حجم السفينة
-            start_pos: موقع البداية (صف، عمود)
-            orientation: الاتجاه ('horizontal' أو 'vertical')
-        Returns:
-            bool: True إذا تم الوضع بنجاح
+            size: حجم السفينة (بتاخد كام خانة في الشبكة)
+            start_pos: المكان اللي هتبدأ منه السفينة على الشبكة (صف، عمود)
+            orientation: اتجاه السفينة ('horizontal' أفقي أو 'vertical' رأسي)
+        
+        المخرجات:
+            bool: True لو السفينة اتحطت بنجاح، False لو محصلش
         """
-        # التحقق من أن السفينة متاحة للوضع
+        # بنتأكد إن السفينة متاحة عشان تتحط
         if ship_name not in [s[0] for s in self.remaining_ships]:
             return False
             
-        # إنشاء سفينة جديدة
+        # بنعمل سفينة جديدة
         ship = Ship(ship_name, size)
         
-        # محاولة وضع السفينة
+        # بنحاول نحط السفينة على الشبكة
         if self.grid.place_ship(ship, start_pos, orientation):
-            # تحديث قوائم السفن
+            # بنحدث قوائم السفن
             self.placed_ships[ship_name] = ship
             self.remaining_ships.remove((ship_name, size))
             return True
@@ -54,19 +58,20 @@ class Player:
 
     def place_ships_randomly(self) -> bool:
         """
-        وضع جميع السفن بشكل عشوائي
-        Returns:
-            bool: True إذا تم وضع جميع السفن بنجاح
+        الدالة دي بتحاول تحط كل السفن بشكل عشوائي على الشبكة.
+        
+        المخرجات:
+            bool: True لو كل السفن اتحطت بنجاح، False لو محصلش
         """
         attempts = 0
-        max_attempts = 200  # زيادة عدد المحاولات للشبكات الكبيرة
+        max_attempts = 200  # أقصى عدد محاولات لوضع السفن، خاصة للشبكات الكبيرة
         original_remaining = self.remaining_ships.copy()
         
         while self.remaining_ships and attempts < max_attempts:
             ship_name, size = self.remaining_ships[0]
             orientation = random.choice(['horizontal', 'vertical'])
             
-            # محاولة وضع السفينة في موقع عشوائي صالح
+            # بنحاول نحط السفينة في مكان عشوائي صحيح
             valid_positions = self._get_valid_positions(size, orientation)
             if valid_positions:
                 pos = random.choice(valid_positions)
@@ -75,14 +80,14 @@ class Player:
                     
             attempts += 1
             
-            # إعادة المحاولة إذا فشلت محاولات كثيرة
+            # لو المحاولات كتير فشلت، بنعيد المحاولة من الأول
             if attempts % 50 == 0:
                 self.grid.clear()
                 self.remaining_ships = original_remaining.copy()
                 self.placed_ships.clear()
                 attempts = 0
         
-        # إذا فشل الوضع، إعادة التعيين للحالة الأصلية
+        # لو فشلنا في وضع السفن، بنرجع للحالة الأصلية
         if self.remaining_ships:
             self.remaining_ships = original_remaining
             self.placed_ships.clear()
@@ -93,30 +98,38 @@ class Player:
 
     def receive_shot(self, position: Tuple[int, int]) -> Tuple[bool, Optional[Ship]]:
         """
-        معالجة طلقة من الخصم
-        Returns:
-            (hit_success, ship_if_sunk)
+        الدالة دي بتتعامل مع الطلقة اللي اتضربت من الخصم.
+        
+        المدخلات:
+            position: المكان اللي اتضربت فيه الطلقة على الشبكة (صف، عمود)
+        
+        المخرجات:
+            مجموعة بتحتوي على:
+            - قيمة منطقية بتوضح إذا كانت الطلقة أصابت هدف ولا لأ
+            - السفينة اللي اتغرقت، لو في سفينة اتغرقت
         """
         self.shots.append(position)
         return self.grid.receive_shot(position)
 
     def all_ships_sunk(self) -> bool:
-        """التحقق من غرق جميع السفن"""
+        """بنتأكد إذا كانت كل سفن اللاعب اتغرقت."""
         return all(ship.is_sunk() for ship in self.placed_ships.values())
 
     def _get_valid_positions(self, ship_size: int, orientation: str) -> List[Tuple[int, int]]:
         """
-        الحصول على جميع المواقع الصالحة لوضع سفينة
-        Args:
+        الدالة دي بتلاقي كل الأماكن الصحيحة على الشبكة اللي ممكن نحط فيها سفينة.
+        
+        المدخلات:
             ship_size: حجم السفينة
-            orientation: الاتجاه
-        Returns:
-            قائمة بالمواقع الصالحة
+            orientation: اتجاه السفينة ('horizontal' أفقي أو 'vertical' رأسي)
+        
+        المخرجات:
+            قائمة بالأماكن الصحيحة (صف، عمود) اللي ممكن نحط فيها السفينة
         """
         valid_positions = []
         grid_size = self.grid.size
         
-        # حساب الحدود حسب الاتجاه
+        # بنحسب الحدود بناءً على الاتجاه
         if orientation == 'horizontal':
             max_row = grid_size
             max_col = grid_size - ship_size + 1
@@ -124,7 +137,7 @@ class Player:
             max_row = grid_size - ship_size + 1
             max_col = grid_size
         
-        # فحص كل موقع محتمل
+        # بنفحص كل مكان ممكن
         for row in range(max_row):
             for col in range(max_col):
                 positions = self.grid._calculate_ship_positions(ship_size, (row, col), orientation)
@@ -133,25 +146,25 @@ class Player:
                     
         return valid_positions
 
-    # دوال مساعدة للحصول على معلومات اللعب
+    # دوال مساعدة للحصول على معلومات اللعبة
     def get_remaining_ships(self) -> List[Tuple[str, int]]:
-        """الحصول على قائمة السفن المتبقية للوضع"""
+        """بنجيب قائمة بالسفن اللي لسه متحطتش على الشبكة."""
         return self.remaining_ships
 
     def get_ship_positions(self, ship_name: str) -> List[Tuple[int, int]]:
-        """الحصول على مواقع سفينة محددة"""
+        """بنجيب أماكن سفينة معينة على الشبكة."""
         if ship_name in self.placed_ships:
             return self.placed_ships[ship_name].get_positions()
         return []
 
     def get_shots_fired(self) -> List[Tuple[int, int]]:
-        """الحصول على قائمة الطلقات"""
+        """بنجيب قائمة بكل الطلقات اللي اللاعب ضربها."""
         return self.shots.copy()
 
     def get_hits(self) -> List[Tuple[int, int]]:
-        """الحصول على قائمة الإصابات الناجحة"""
+        """بنجيب قائمة بكل الإصابات الناجحة اللي اللاعب عملها."""
         return [pos for pos in self.shots if self.grid.get_cell_state(pos) == 'hit']
 
     def get_misses(self) -> List[Tuple[int, int]]:
-        """الحصول على قائمة الطلقات الفاشلة"""
+        """بنجيب قائمة بكل الطلقات اللي اللاعب فشل فيها."""
         return [pos for pos in self.shots if self.grid.get_cell_state(pos) == 'miss']

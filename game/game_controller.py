@@ -7,6 +7,24 @@ from utils.constants import SHIPS
 
 class GameController:
     def __init__(self, db_manager: DatabaseManager):
+        """
+        تهيئة متحكم اللعبة
+        
+        Args:
+            db_manager (DatabaseManager): كائن مدير قاعدة البيانات للتعامل مع حفظ وتحميل البيانات
+            
+        Attributes:
+            db_manager: مدير قاعدة البيانات
+            player: كائن اللاعب
+            ai_player: كائن الخصم (الكمبيوتر)
+            current_turn: دور اللاعب الحالي ('player' أو 'ai')
+            game_over: حالة انتهاء اللعبة
+            selected_position: الموقع المحدد حالياً
+            grid_size: حجم شبكة اللعب (10×10 افتراضياً)
+            main_window: النافذة الرئيسية للعبة
+            game_state: حالة اللعبة ('setup', 'playing', 'ended')
+            stats: إحصائيات اللعبة الحالية والسابقة
+        """
         self.db_manager = db_manager
         self.player = None
         self.ai_player = None
@@ -26,7 +44,22 @@ class GameController:
         }
         
     def start_new_game(self) -> bool:
-        """Initialize a new game"""
+        """
+        تهيئة لعبة جديدة
+        
+        تقوم هذه الوظيفة بإنشاء لاعب جديد وخصم كمبيوتر جديد، وتعيين حالة اللعبة الأولية،
+        وإعادة تعيين الإحصائيات، ووضع سفن الكمبيوتر بشكل عشوائي.
+        
+        Returns:
+            bool: True دائماً لنجاح إنشاء اللعبة الجديدة
+            
+        تأثيرات جانبية:
+            - إنشاء كائنات اللاعب والخصم
+            - تعيين دور اللاعب الحالي إلى 'player'
+            - تعيين حالة اللعبة إلى 'setup'
+            - إعادة تعيين الإحصائيات
+            - وضع سفن الكمبيوتر بشكل عشوائي
+        """
         self.player = Player(grid_size=self.grid_size)
         self.ai_player = AIPlayer()
         self.ai_player.grid.resize(self.grid_size)
@@ -49,7 +82,19 @@ class GameController:
         return True
         
     def start_gameplay(self) -> bool:
-        """Start the actual gameplay after setup"""
+        """
+        بدء اللعب الفعلي بعد مرحلة الإعداد
+        
+        تتحقق هذه الوظيفة من أن اللاعبين موجودين وأن جميع السفن قد تم وضعها،
+        ثم تبدأ مرحلة اللعب وتعين دور اللاعب الأول.
+        
+        Returns:
+            bool: True إذا تم بدء اللعب بنجاح، False إذا لم تكتمل شروط بدء اللعب
+            
+        تأثيرات جانبية:
+            - تغيير حالة اللعبة إلى 'playing'
+            - تعيين الدور الحالي إلى 'player'
+        """
         if not self.player or not self.ai_player:
             return False
             
@@ -62,7 +107,25 @@ class GameController:
         
     def place_player_ship(self, ship_name: str, start_pos: Tuple[int, int], 
                          orientation: str) -> bool:
-        """Attempt to place a player's ship"""
+        """
+        محاولة وضع سفينة اللاعب على الشبكة
+        
+        Parameters:
+            ship_name (str): اسم السفينة المراد وضعها
+            start_pos (Tuple[int, int]): إحداثيات نقطة البداية للسفينة
+            orientation (str): اتجاه السفينة ('horizontal' أو 'vertical')
+            
+        Returns:
+            bool: True إذا تم وضع السفينة بنجاح، False إذا فشلت العملية
+            
+        تأثيرات جانبية:
+            - وضع السفينة على شبكة اللاعب إذا كان الموضع صالحاً
+            - بدء اللعب إذا تم وضع جميع السفن
+            
+        شروط:
+            - يجب أن تكون حالة اللعبة في مرحلة الإعداد ('setup')
+            - يجب أن يكون اللاعب موجوداً
+        """
         if self.game_state != 'setup' or not self.player:
             return False
             

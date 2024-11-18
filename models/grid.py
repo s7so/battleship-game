@@ -3,15 +3,20 @@ from .ship import Ship
 
 class Grid:
     """
-    فئة تمثل شبكة اللعب في Battleship
-    المسؤوليات الرئيسية:
-    1. إدارة مواقع السفن على الشبكة
+    الفئة دي بتمثل شبكة اللعب في لعبة Battleship
+    المسؤوليات الرئيسية للفئة دي:
+    1. إدارة أماكن السفن على الشبكة
     2. تتبع الطلقات والإصابات
     3. التحقق من صحة وضع السفن
     4. دعم تغيير حجم الشبكة (10×10 أو 15×15)
     """
     
     def __init__(self, size: int = 10):
+        """
+        دي دالة البداية اللي بتشتغل أول ما نعمل كائن من الفئة دي
+        Args:
+            size: حجم الشبكة (افتراضي 10)
+        """
         self.size = size  # حجم الشبكة (10×10 أو 15×15)
         # مصفوفة ثنائية الأبعاد لتمثيل الشبكة
         self.grid = [[None for _ in range(self.size)] for _ in range(self.size)]
@@ -23,7 +28,7 @@ class Grid:
 
     def resize(self, new_size: int):
         """
-        تغيير حجم ��لشبكة وإعادة تعيين كل البيانات
+        تغيير حجم الشبكة وإعادة تعيين كل البيانات
         Args:
             new_size: الحجم الجديد للشبكة
         """
@@ -69,6 +74,10 @@ class Grid:
                                 orientation: str) -> Optional[List[Tuple[int, int]]]:
         """
         حساب جميع المواقع التي ستشغلها السفينة
+        Args:
+            size: حجم السفينة
+            start_pos: موقع البداية (صف، عمود)
+            orientation: الاتجاه ('horizontal' أو 'vertical')
         Returns:
             List[Tuple[int, int]] | None: قائمة المواقع أو None إذا كان الوضع غير صالح
         """
@@ -91,13 +100,21 @@ class Grid:
         return positions
 
     def _is_within_grid(self, pos: Tuple[int, int]) -> bool:
-        """التحقق من أن الموقع داخل حدود الشبكة"""
+        """
+        التحقق من أن الموقع داخل حدود الشبكة
+        Args:
+            pos: الموقع (صف، عمود)
+        Returns:
+            bool: True إذا كان الموقع داخل الشبكة
+        """
         row, col = pos
         return 0 <= row < self.size and 0 <= col < self.size
 
     def receive_shot(self, pos: Tuple[int, int]) -> Tuple[bool, Optional[Ship]]:
         """
         معالجة طلقة وإرجاع النتيجة
+        Args:
+            pos: الموقع (صف، عمود)
         Returns:
             - bool: نجاح الإصابة
             - Optional[Ship]: السفينة إذا غرقت
@@ -121,6 +138,8 @@ class Grid:
     def get_cell_state(self, pos: Tuple[int, int]) -> str:
         """
         الحصول على حالة خلية في موقع معين
+        Args:
+            pos: الموقع (صف، عمود)
         Returns:
             str: 'empty', 'ship', 'hit', 'miss', أو 'invalid'
         """
@@ -141,6 +160,10 @@ class Grid:
         - لا تداخل مع سفن أخرى
         - لا تجاور مع سفن أخرى (حتى قطرياً)
         - داخل حدود الشبكة
+        Args:
+            positions: قائمة المواقع (صف، عمود)
+        Returns:
+            bool: True إذا كان الوضع صالح
         """
         for row, col in positions:
             for i in range(-1, 2):
@@ -152,34 +175,62 @@ class Grid:
         return True
 
     def _is_valid_orientation(self, orientation: str) -> bool:
-        """التحقق من صحة الاتجاه"""
+        """
+        التحقق من صحة الاتجاه
+        Args:
+            orientation: الاتجاه ('horizontal' أو 'vertical')
+        Returns:
+            bool: True إذا كان الاتجاه صالح
+        """
         return orientation in ['horizontal', 'vertical']
 
     def all_ships_sunk(self) -> bool:
-        """التحقق من غرق جميع السفن"""
+        """
+        التحقق من غرق جميع السفن
+        Returns:
+            bool: True إذا كانت كل السفن غرقت
+        """
         return all(ship.is_sunk() for ship in self.ships)
 
     def get_all_ship_positions(self) -> Set[Tuple[int, int]]:
-        """الحصول على جميع مواقع السفن"""
+        """
+        الحصول على جميع مواقع السفن
+        Returns:
+            Set[Tuple[int, int]]: مجموعة من المواقع (صف، عمود)
+        """
         positions = set()
         for ship in self.ships:
             positions.update(ship.get_positions())
         return positions
 
     def get_shots_fired(self) -> Set[Tuple[int, int]]:
-        """الحصول على جميع الطلقات"""
+        """
+        الحصول على جميع الطلقات
+        Returns:
+            Set[Tuple[int, int]]: مجموعة من المواقع (صف، عمود)
+        """
         return self.shots.copy()
 
     def get_hits(self) -> Set[Tuple[int, int]]:
-        """الحصول على جميع الإصابات الناجحة"""
+        """
+        الحصول على جميع الإصابات الناجحة
+        Returns:
+            Set[Tuple[int, int]]: مجموعة من المواقع (صف، عمود)
+        """
         return self.hits.copy()
 
     def get_misses(self) -> Set[Tuple[int, int]]:
-        """الحصول على جميع الطلقات الفاشلة"""
+        """
+        الحصول على جميع الطلقات الفاشلة
+        Returns:
+            Set[Tuple[int, int]]: مجموعة من المواقع (صف، عمود)
+        """
         return self.misses.copy()
 
     def clear(self):
-        """إعادة تعيين الشبكة وكل البيانات"""
+        """
+        إعادة تعيين الشبكة وكل البيانات
+        """
         self.grid = [[None for _ in range(self.size)] for _ in range(self.size)]
         self.ships.clear()
         self.shots.clear()
