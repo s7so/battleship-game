@@ -3,45 +3,53 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 
 class DatabaseError(Exception):
-    """ايرور مخصوص للداتابيز"""
+    """استثناء مخصص للتعامل مع أخطاء قاعدة البيانات"""
     pass
 
 class DatabaseManager:
     def __init__(self, db_path: str = 'battleship.db'):
         """
-        تهيئة مدير قاعدة البيانات
+        تهيئة مدير قاعدة البيانات.
+
         Args:
-            db_path: مسار ملف قاعدة البيانات (اختياري، القيمة الافتراضية 'battleship.db')
+            db_path (str): مسار ملف قاعدة البيانات. القيمة الافتراضية هي 'battleship.db'.
         """
         try:
             self.conn = sqlite3.connect(db_path)
-            # نشغل دعم الفورين كيز
+            # تفعيل دعم المفاتيح الخارجية للحفاظ على التكامل المرجعي
             self.conn.execute("PRAGMA foreign_keys = ON")
             self.create_tables()
         except sqlite3.Error as e:
-            raise DatabaseError(f"مقدرناش نعمل الداتابيز: {str(e)}")
+            raise DatabaseError(f"تعذر إنشاء قاعدة البيانات: {str(e)}")
 
     def execute_safe(self, query: str, params: tuple = ()) -> sqlite3.Cursor:
-        """ننفذ الكويري بأمان مع هاندلة الايرورز"""
+        """
+        تنفيذ استعلام SQL بأمان مع معالجة الأخطاء.
+
+        Args:
+            query (str): الاستعلام المراد تنفيذه.
+            params (tuple): المعاملات المطلوب تمريرها للاستعلام.
+
+        Returns:
+            sqlite3.Cursor: مؤشر النتائج الناتجة عن الاستعلام.
+
+        Raises:
+            DatabaseError: إذا حدث خطأ أثناء تنفيذ الاستعلام.
+        """
         try:
             return self.conn.execute(query, params)
         except sqlite3.Error as e:
-            raise DatabaseError(f"ايرور في الداتابيز: {str(e)}")
+            raise DatabaseError(f"خطأ في قاعدة البيانات: {str(e)}")
 
     def create_tables(self):
-        """نعمل التيبلز اللي محتاجينها لو مش موجودة"""
+        """
+        إنشاء الجداول المطلوبة في قاعدة البيانات إذا لم تكن موجودة بالفعل.
+        """
         try:
             with self.conn:
-                # نمسح التيبلز بالترتيب من الصغير للكبير
-                self.conn.execute('DROP TABLE IF EXISTS ship_statistics')
-                self.conn.execute('DROP TABLE IF EXISTS game_history')
-                self.conn.execute('DROP TABLE IF EXISTS player_settings')
-                self.conn.execute('DROP TABLE IF EXISTS players')
-                
-                # نعمل التيبلز بالترتيب من الكبير للصغير
-                # 1. تيبل اللعيبة (الأساسي)
+                # إنشاء جدول اللاعبين (الأساسي)
                 self.conn.execute('''
-                    CREATE TABLE players (
+                    CREATE TABLE IF NOT EXISTS players (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL UNIQUE,
                         games_played INTEGER DEFAULT 0,
@@ -54,9 +62,9 @@ class DatabaseManager:
                     )
                 ''')
                 
-                # 2. تيبل الإعدادات بتاعت اللعيبة
+                # إنشاء جدول إعدادات اللاعبين
                 self.conn.execute('''
-                    CREATE TABLE player_settings (
+                    CREATE TABLE IF NOT EXISTS player_settings (
                         player_id INTEGER PRIMARY KEY,
                         grid_size INTEGER DEFAULT 10,
                         sound_enabled BOOLEAN DEFAULT 1,
@@ -66,9 +74,9 @@ class DatabaseManager:
                     )
                 ''')
                 
-                # 3. تيبل تاريخ اللعب
+                # إنشاء جدول تاريخ اللعب
                 self.conn.execute('''
-                    CREATE TABLE game_history (
+                    CREATE TABLE IF NOT EXISTS game_history (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         player_id INTEGER,
                         result TEXT NOT NULL,
@@ -84,9 +92,9 @@ class DatabaseManager:
                     )
                 ''')
                 
-                # 4. تيبل احصائيات الراكب
+                # إنشاء جدول إحصائيات السفن
                 self.conn.execute('''
-                    CREATE TABLE ship_statistics (
+                    CREATE TABLE IF NOT EXISTS ship_statistics (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         game_id INTEGER,
                         ship_name TEXT NOT NULL,
@@ -99,14 +107,25 @@ class DatabaseManager:
                 ''')
                 
         except sqlite3.Error as e:
-            print(f"ايرور في عمل التيبلز: {e}")
-            raise DatabaseError(f"مقدرناش نعمل تيبلز الداتابيز: {str(e)}")
+            print(f"خطأ في إنشاء الجداول: {e}")
+            raise DatabaseError(f"تعذر إنشاء جداول قاعدة البيانات: {str(e)}")
 
     def create_player(self, name: str) -> int:
-        """Create a new player and return their ID"""
+        """
+        إنشاء لاعب جديد وإرجاع معرفه الفريد.
+
+        Args:
+            name (str): اسم اللاعب.
+
+        Returns:
+            int: معرف اللاعب الجديد.
+
+        Raises:
+            DatabaseError: إذا كان اسم اللاعب موجود مسبقاً أو حدث خطأ آخر.
+        """
         try:
             with self.conn:
-                print(f"Creating new player with name: {name}")  # للتأكد
+                print(f"إنشاء لاعب جديد بالاسم: {name}")  # للتأكد
                 cursor = self.conn.execute('''
                     INSERT INTO players 
                     (name, games_played, games_won, total_shots, total_hits, accuracy) 
@@ -114,17 +133,25 @@ class DatabaseManager:
                 ''', (name.strip(),))
                 
                 player_id = cursor.lastrowid
-                print(f"Player created successfully with ID: {player_id}")  # للتأكد
+                print(f"تم إنشاء اللاعب بنجاح بالمعرف: {player_id}")  # للتأكد
                 return player_id
         except sqlite3.IntegrityError:
-            print("Error: Player name already exists")  # للتأكد
-            raise DatabaseError("Player already exists")
+            print("خطأ: اسم اللاعب موجود بالفعل")  # للتأكد
+            raise DatabaseError("اللاعب موجود بالفعل")
         except Exception as e:
-            print(f"Error in create_player: {e}")  # للتأكد
-            raise DatabaseError(f"Failed to create player: {str(e)}")
+            print(f"خطأ في إنشاء اللاعب: {e}")  # للتأكد
+            raise DatabaseError(f"فشل في إنشاء اللاعب: {str(e)}")
 
     def get_player(self, player_id: int) -> Optional[Dict]:
-        """نجيب معلومات اللعيب"""
+        """
+        جلب معلومات اللاعب بناءً على معرفه.
+
+        Args:
+            player_id (int): معرف اللاعب.
+
+        Returns:
+            Optional[Dict]: قاموس يحتوي على معلومات اللاعب أو None إذا لم يكن موجوداً.
+        """
         try:
             cursor = self.conn.execute(
                 'SELECT * FROM players WHERE id = ?',
@@ -145,21 +172,30 @@ class DatabaseManager:
                 }
             return None
         except Exception as e:
-            print(f"ايرور في جلب اللعيب: {e}")
+            print(f"خطأ في جلب اللاعب: {e}")
             return None
 
     def save_game_result(self, player_id: int, result: Dict[str, Any]):
-        """نحفظ نتيجة اللعبة ونحدث احصائيات اللعيب"""
+        """
+        حفظ نتيجة اللعبة وتحديث إحصائيات اللاعب.
+
+        Args:
+            player_id (int): معرف اللاعب.
+            result (Dict[str, Any]): قاموس يحتوي على تفاصيل نتيجة اللعبة.
+
+        Raises:
+            DatabaseError: إذا حدث خطأ أثناء حفظ النتيجة أو تحديث الإحصائيات.
+        """
         try:
             with self.conn:
-                # نتأكد ان اللعيب موجود
+                # التأكد من وجود اللاعب
                 if not self.get_player(player_id):
-                    raise ValueError(f"مفيش لعيب بالاي دي ده {player_id}")
+                    raise ValueError(f"لا يوجد لاعب بالمعرف {player_id}")
                 
-                # نحسب الدقة
+                # حساب الدقة بناءً على الضربات والصدمات
                 accuracy = (result['hits'] / result['moves'] * 100) if result['moves'] > 0 else 0
                 
-                # ندخل نتيجة اللعبة
+                # إدخال نتيجة اللعبة في جدول تاريخ اللعب
                 cursor = self.execute_safe('''
                     INSERT INTO game_history 
                     (player_id, result, grid_size, moves, hits, misses, accuracy, duration)
@@ -175,7 +211,7 @@ class DatabaseManager:
                     result['duration']
                 ))
                 
-                # نحدث احصائيات اللعيب
+                # تحديث إحصائيات اللاعب
                 self.execute_safe('''
                     UPDATE players 
                     SET games_played = games_played + 1,
@@ -188,11 +224,19 @@ class DatabaseManager:
                 ''', (result['outcome'], result['moves'], result['hits'], player_id))
                 
         except Exception as e:
-            print(f"ايرور في حفظ نتيجة اللعبة: {e}")
+            print(f"خطأ في حفظ نتيجة اللعبة: {e}")
             raise
 
     def get_player_statistics(self, player_id: int) -> Dict[str, Any]:
-        """جلب إحصائيات مفصلة للاعب مع تحليلات إضافية"""
+        """
+        جلب إحصائيات مفصلة للاعب مع تحليلات إضافية.
+
+        Args:
+            player_id (int): معرف اللاعب.
+
+        Returns:
+            Dict[str, Any]: قاموس يحتوي على إحصائيات اللاعب.
+        """
         try:
             cursor = self.conn.execute('''
                 WITH PlayerStats AS (
@@ -229,17 +273,26 @@ class DatabaseManager:
                     'best_game': row[12],
                     'worst_game': row[13],
                     'avg_duration': row[14],
-                    'quick_wins': row[16],  # عدد المرات التي فاز فيها بسرعة
+                    'quick_wins': row[16],  # عدد المرات التي فاز فيها اللاعب بسرعة
                     'win_rate': row[17],    # نسبة الفوز
                     'accuracy_rate': row[18] # معدل الدقة
                 }
             return {}
         except Exception as e:
-            print(f"Error getting player statistics: {e}")
+            print(f"خطأ في جلب إحصائيات اللاعب: {e}")
             return {}
 
     def get_game_history(self, player_id: int, limit: int = 10) -> List[Dict]:
-        """نجيب آخر تاريخ لعب للعيب"""
+        """
+        جلب آخر سجل للألعاب التي لعبها اللاعب.
+
+        Args:
+            player_id (int): معرف اللاعب.
+            limit (int): الحد الأقصى لعدد السجلات المراد جلبها. الافتراضي هو 10.
+
+        Returns:
+            List[Dict]: قائمة من القواميس تحتوي على تفاصيل كل لعبة.
+        """
         cursor = self.conn.execute('''
             SELECT * FROM game_history 
             WHERE player_id = ?
@@ -260,15 +313,21 @@ class DatabaseManager:
         } for row in cursor.fetchall()]
 
     def close(self):
-        """نقفل كونكشن الداتابيز"""
+        """
+        إغلاق اتصال قاعدة البيانات.
+        """
         self.conn.close()
 
     def get_leaderboard(self, limit: int = 10, time_period: str = 'all') -> List[Dict]:
         """
-        جلب لوحة المتصدرين مع تصفية حسب الفترة الزمنية
+        جلب قائمة المتصدرين مع إمكانية تصفية النتائج حسب الفترة الزمنية.
+
         Args:
-            limit: عدد النتائج المطلوبة
-            time_period: 'all', 'week', 'month', 'year'
+            limit (int): عدد النتائج المطلوبة.
+            time_period (str): الفترة الزمنية للتصفية. القيم الممكنة: 'all', 'week', 'month', 'year'.
+
+        Returns:
+            List[Dict]: قائمة من القواميس تحتوي على تفاصيل المتصدرين.
         """
         try:
             time_filter = ''
@@ -319,11 +378,19 @@ class DatabaseManager:
                 'quick_win_ratio': row[7]
             } for row in cursor.fetchall()]
         except Exception as e:
-            print(f"Error getting leaderboard: {e}")
+            print(f"خطأ في جلب قائمة المتصدرين: {e}")
             return []
 
     def get_ship_statistics(self, player_id: int) -> Dict[str, Any]:
-        """نجيب احصائيات تفصيلية عن أداء المراكب"""
+        """
+        جلب إحصائيات تفصيلية عن أداء السفن الخاصة باللاعب.
+
+        Args:
+            player_id (int): معرف اللاعب.
+
+        Returns:
+            Dict[str, Any]: قاموس يحتوي على إحصائيات كل سفينة.
+        """
         cursor = self.conn.execute('''
             SELECT 
                 sh.ship_name,
@@ -345,18 +412,14 @@ class DatabaseManager:
         } for row in cursor.fetchall()}
 
     def save_game_settings(self, player_id: int, settings: Dict[str, Any]):
-        """نحفظ إعدادات اللعبة بتاعت اللعيب"""
+        """
+        حفظ إعدادات اللعبة الخاصة باللاعب.
+
+        Args:
+            player_id (int): معرف اللاعب.
+            settings (Dict[str, Any]): قاموس يحتوي على إعدادات اللعبة مثل حجم الشبكة والصوت والموسيقى.
+        """
         with self.conn:
-            self.conn.execute('''
-                CREATE TABLE IF NOT EXISTS player_settings (
-                    player_id INTEGER PRIMARY KEY,
-                    grid_size INTEGER DEFAULT 10,
-                    sound_enabled BOOLEAN DEFAULT 1,
-                    music_enabled BOOLEAN DEFAULT 1,
-                    FOREIGN KEY (player_id) REFERENCES players (id)
-                )
-            ''')
-            
             self.conn.execute('''
                 INSERT OR REPLACE INTO player_settings 
                 (player_id, grid_size, sound_enabled, music_enabled)
@@ -369,7 +432,15 @@ class DatabaseManager:
             ))
 
     def get_game_settings(self, player_id: int) -> Dict[str, Any]:
-        """نجيب إعدادات اللعبة بتاعت اللعيب"""
+        """
+        جلب إعدادات اللعبة الخاصة باللاعب.
+
+        Args:
+            player_id (int): معرف اللاعب.
+
+        Returns:
+            Dict[str, Any]: قاموس يحتوي على إعدادات اللعبة مثل حجم الشبكة والصوت والموسيقى.
+        """
         cursor = self.conn.execute('''
             SELECT grid_size, sound_enabled, music_enabled
             FROM player_settings
@@ -390,9 +461,14 @@ class DatabaseManager:
         }
 
     def delete_player_data(self, player_id: int):
-        """نمسح كل البيانات بتاعت اللعيب"""
+        """
+        حذف جميع البيانات المتعلقة باللاعب من قاعدة البيانات.
+
+        Args:
+            player_id (int): معرف اللاعب.
+        """
         with self.conn:
-            # نمسح من احصائيات المراكب (من خلال تاريخ اللعب)
+            # حذف من إحصائيات السفن عبر تاريخ اللعب
             self.conn.execute('''
                 DELETE FROM ship_statistics 
                 WHERE game_id IN (
@@ -400,26 +476,31 @@ class DatabaseManager:
                 )
             ''', (player_id,))
             
-            # نمسح من تاريخ اللعب
+            # حذف من تاريخ اللعب
             self.conn.execute('''
                 DELETE FROM game_history 
                 WHERE player_id = ?
             ''', (player_id,))
             
-            # نمسح من إعدادات اللعيب
+            # حذف من إعدادات اللاعبين
             self.conn.execute('''
                 DELETE FROM player_settings 
                 WHERE player_id = ?
             ''', (player_id,))
             
-            # نمسح من اللعيبة
+            # حذف من جدول اللاعبين
             self.conn.execute('''
                 DELETE FROM players 
                 WHERE id = ?
             ''', (player_id,))
 
     def check_connection(self) -> bool:
-        """نشوف لو الكونكشن شغال ولا لأ"""
+        """
+        التحقق مما إذا كان الاتصال بقاعدة البيانات ما زال فعالاً.
+
+        Returns:
+            bool: True إذا كان الاتصال نشطاً، False خلاف ذلك.
+        """
         try:
             self.conn.execute("SELECT 1")
             return True
@@ -427,32 +508,50 @@ class DatabaseManager:
             return False
 
     def reconnect(self):
-        """نحاول نعمل كونكشن تاني بالداتابيز"""
+        """
+        إعادة الاتصال بقاعدة البيانات إذا كان الاتصال الحالي غير نشط.
+        
+        Raises:
+            DatabaseError: إذا فشل إعادة الاتصال.
+        """
         try:
             if not self.check_connection():
                 self.conn = sqlite3.connect('battleship.db')
                 self.conn.execute("PRAGMA foreign_keys = ON")
         except sqlite3.Error as e:
-            raise DatabaseError(f"مقدرناش نعمل كونكشن تاني: {str(e)}")
+            raise DatabaseError(f"تعذر إعادة الاتصال: {str(e)}")
 
     def backup_database(self, backup_path: str):
-        """نعمل باكاب للداتابيز"""
+        """
+        عمل نسخة احتياطية من قاعدة البيانات في المسار المحدد.
+
+        Args:
+            backup_path (str): المسار حيث سيتم حفظ النسخة الاحتياطية.
+
+        Raises:
+            DatabaseError: إذا فشل عمل النسخة الاحتياطية.
+        """
         try:
             backup_conn = sqlite3.connect(backup_path)
             with backup_conn:
                 self.conn.backup(backup_conn)
             backup_conn.close()
         except sqlite3.Error as e:
-            raise DatabaseError(f"الباكاب فشل: {str(e)}")
+            raise DatabaseError(f"فشل النسخة الاحتياطية: {str(e)}")
 
     def find_player_by_name(self, name: str) -> Optional[Dict]:
         """
-        البحث عن لاعب باسمه
-        Returns: معلومات اللاعب أو None إذا لم يوجد
+        البحث عن لاعب باستخدام اسمه.
+
+        Args:
+            name (str): اسم اللاعب المطلوب البحث عنه.
+
+        Returns:
+            Optional[Dict]: قاموس يحتوي على معلومات اللاعب أو None إذا لم يتم العثور عليه.
         """
         try:
             cursor = self.conn.execute(
-                'SELECT * FROM players WHERE LOWER(name) = LOWER(?)',  # تجاهل حالة الأحرف
+                'SELECT * FROM players WHERE LOWER(name) = LOWER(?)',  # تجاهل حالة الأحرف في الاسم
                 (name.strip(),)
             )
             row = cursor.fetchone()
@@ -471,11 +570,19 @@ class DatabaseManager:
                 }
             return None
         except Exception as e:
-            print(f"Error in find_player_by_name: {e}")
+            print(f"خطأ في البحث عن اللاعب بالاسم: {e}")
             return None
 
     def get_player_achievements(self, player_id: int) -> List[Dict]:
-        """جلب إنجازات اللاعب"""
+        """
+        جلب إنجازات اللاعب بناءً على إحصائياته.
+
+        Args:
+            player_id (int): معرف اللاعب.
+
+        Returns:
+            List[Dict]: قائمة من القواميس تحتوي على تفاصيل الإنجازات المحققة.
+        """
         achievements = []
         try:
             stats = self.get_player_statistics(player_id)
@@ -483,42 +590,50 @@ class DatabaseManager:
             # إنجازات عدد الألعاب
             if stats['games_played'] >= 100:
                 achievements.append({
-                    'title': 'Veteran Player',
-                    'description': 'Played 100 or more games',
+                    'title': 'لاعب مخضرم',
+                    'description': 'لعب 100 لعبة أو أكثر',
                     'icon': '🎮'
                 })
                 
             # إنجازات نسبة الفوز
             if stats['win_rate'] >= 75:
                 achievements.append({
-                    'title': 'Master Commander',
-                    'description': 'Maintained a 75% or higher win rate',
+                    'title': 'قائد محترف',
+                    'description': 'حافظ على نسبة فوز 75% أو أكثر',
                     'icon': '👑'
                 })
                 
             # إنجازات الدقة
             if stats['accuracy_rate'] >= 50:
                 achievements.append({
-                    'title': 'Sharp Shooter',
-                    'description': 'Maintained 50% or higher accuracy',
+                    'title': 'رامي دقيق',
+                    'description': 'حافظ على دقة 50% أو أكثر',
                     'icon': '🎯'
                 })
                 
             # إنجازات الفوز السريع
             if stats['quick_wins'] >= 10:
                 achievements.append({
-                    'title': 'Swift Victory',
-                    'description': 'Won 10 or more games in under 30 moves',
+                    'title': 'فوز سريع',
+                    'description': 'حقق 10 انتصارات أو أكثر في أقل من 30 حركة',
                     'icon': '⚡'
                 })
                 
             return achievements
         except Exception as e:
-            print(f"Error getting achievements: {e}")
+            print(f"خطأ في جلب إنجازات اللاعب: {e}")
             return []
 
     def get_player_progress(self, player_id: int) -> Dict[str, Any]:
-        """جلب تقدم اللاعب وتحليل أدائه"""
+        """
+        جلب تقدم اللاعب وتحليل أدائه على مدار الزمن.
+
+        Args:
+            player_id (int): معرف اللاعب.
+
+        Returns:
+            Dict[str, Any]: قاموس يحتوي على بيانات التقدم ومعدل التحسن.
+        """
         try:
             cursor = self.conn.execute('''
                 WITH GameProgress AS (
@@ -558,11 +673,19 @@ class DatabaseManager:
                 'improvement_rate': self._calculate_improvement_rate(progress_data)
             }
         except Exception as e:
-            print(f"Error getting player progress: {e}")
+            print(f"خطأ في جلب تقدم اللاعب: {e}")
             return {}
 
     def _calculate_improvement_rate(self, progress_data: List[Dict]) -> float:
-        """حساب معدل تحسن اللاعب"""
+        """
+        حساب معدل تحسن اللاعب بناءً على نتائج الألعاب المبكرة والمتأخرة.
+
+        Args:
+            progress_data (List[Dict]): قائمة من القواميس تحتوي على بيانات التقدم اليومي.
+
+        Returns:
+            float: نسبة التحسن المحسوبة.
+        """
         if len(progress_data) < 2:
             return 0.0
         
