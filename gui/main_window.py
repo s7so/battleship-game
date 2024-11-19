@@ -32,9 +32,6 @@ class MainWindow(QMainWindow):
         self.selected_ship = None  # السفينة المحددة حالياً للوضع
         self.selected_orientation = 'horizontal'  # اتجاه وضع السفينة (أفقي/رأسي)
         self.init_ui()  # بدء تهيئة واجهة المستخدم
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_game_duration)
-        self.timer.start(1000)  # كل ثانية
 
     def init_ui(self):
         """
@@ -296,7 +293,7 @@ class MainWindow(QMainWindow):
         self.update_stats_display()
         layout.addWidget(self.stats_label)
 
-        layout.addStretch()  # إضافة مسافة مرنة ف�� النهاية
+        layout.addStretch()  # إضافة مسافة مرنة في النهاية
         return layout
 
     def handle_attack(self, row: int, col: int):
@@ -471,7 +468,7 @@ class MainWindow(QMainWindow):
         تأكيد إنهاء اللعبة الحالية
         - التحقق من حالة اللعبة
         - عرض رسالة تأكيد
-        - إنهاء اللعبة أو بد لعبة جديدة
+        - إنهاء اللعبة أو بد�� لعبة جديدة
         """
         # إذا كانت اللعبة منتهية بالفعل، نبدأ لعبة جديدة
         if self.game_controller.get_game_state() == 'ended':
@@ -495,7 +492,7 @@ class MainWindow(QMainWindow):
                 self.update_status("Game ended manually")
                 # تحديث الإحصائيات
                 self.update_stats_display()
-                # عرض ر��الة تأكيد
+                # عرض رسالة تأكيد
                 QMessageBox.information(self, 'Game Ended', 'The game has been ended.')
                 # بدء لعبة جديدة بعد تأخير قصير
                 QTimer.singleShot(1000, self.start_new_game)
@@ -600,7 +597,7 @@ class MainWindow(QMainWindow):
 
     def select_ship(self, ship_name: str):
         """
-        اختيار سفينة لوضعها على الشكة
+        اختيار سفينة لوضعها على الشبكة
         Args:
             ship_name: اسم السفينة المراد اختيارها
         التأثيرات:
@@ -704,13 +701,36 @@ class MainWindow(QMainWindow):
             self.update_status("Error starting game!")
 
     def reset_ui(self):
-        """
-        إعادة تهيئة واجهة المستخدم بعد تحديث الإعدادات
-        """
-        # قم بإعادة تحميل الشاشات، تحديث الشبكات، إلخ.
-        self.close()  # إغلاق النافذة الحالية
-        self.__init__(self.game_controller)  # إعادة تهيئة النافذة
-        self.show()  # عرض النافذة مجددًا
+        """Reset the UI for a new game"""
+        # إعادة تعيين واجهة المستخدم لبدء لعبة جديدة
+
+        # إنشاء عنصر واجهة مستخدم مركزي جديد وتعيينه كعنصر مركزي
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QHBoxLayout(central_widget)
+
+        # إنشاء أقسام الشبكة للاعب و AI بالحجم الجديد
+        player_section = self.create_grid_section("Your Fleet", is_player=True)
+        ai_section = self.create_grid_section("Enemy Waters", is_player=False)
+
+        # إنشاء لوحة التحكم
+        control_panel = self.create_control_panel()
+
+        # إضافة الأقسام إلى التخطيط الرئيسي
+        main_layout.addLayout(player_section)
+        main_layout.addLayout(control_panel)
+        main_layout.addLayout(ai_section)
+
+        # إعادة تعيين عناصر واجهة المستخدم الأخرى
+        self.orientation_btn.setEnabled(True)  # تمكين زر الاتجاه
+        self.selected_ship = None  # إعادة تعيين السفينة المحددة
+        self.selected_orientation = 'horizontal'  # إعادة تعيين الاتجاه المحدد
+        self.update_status("Place your ships!")  # تحديث حالة اللعبة
+
+        # إعادة تعيين المتغيرات المتعلقة بالهجوم
+        if hasattr(self, 'selected_attack_pos'):
+            delattr(self, 'selected_attack_pos')  # إزالة موقع الهجوم المحدد إذا كان موجودًا
+        self.fire_btn.setEnabled(False)  # تعطيل زر الهجوم
 
     def game_over(self, winner: str):
         """Handle game over"""
@@ -858,14 +878,3 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         return reply == QMessageBox.StandardButton.Yes
-
-    def update_game_duration(self):
-        if self.game_controller.game_state == 'playing':
-            self.game_controller.stats['current_game_duration'] += 1
-            self.game_controller.update_game_duration_ui()
-
-    def update_game_duration_display(self):
-        """Update the UI to display the current game duration"""
-        duration = self.game_controller.stats['current_game_duration']
-        # تحديث نافذة الحالة أو عنصر معين لعرض المدة
-        self.status_label.setText(f"Game Duration: {duration} seconds")
