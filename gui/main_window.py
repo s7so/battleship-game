@@ -2,6 +2,9 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QGridLayout, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer
 from utils.constants import GRID_SIZE, CELL_SIZE, WATER_COLOR, SHIP_COLOR, HIT_COLOR, MISS_COLOR
+import logging
+
+logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 class MainWindow(QMainWindow):
@@ -31,7 +34,25 @@ class MainWindow(QMainWindow):
         self.ai_grid_buttons = []  # مصفوفة تخزن أزرار شبكة الخصم
         self.selected_ship = None  # السفينة المحددة حالياً للوضع
         self.selected_orientation = 'horizontal'  # اتجاه وضع السفينة (أفقي/رأسي)
+        self.selected_attack_pos = None  # Initialize selected_attack_pos
         self.init_ui()  # بدء تهيئة واجهة المستخدم
+
+    # Extract CSS styles into constants
+    BUTTON_STYLE = """
+        QPushButton {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        QPushButton:hover {
+            background-color: #2980b9;
+        }
+        QPushButton:disabled {
+            background-color: #bdc3c7;
+        }
+    """
 
     def init_ui(self):
         """
@@ -60,23 +81,10 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(ai_section)  # شبكة الخصم على اليمين
 
         # تطبيق نمط التصميم على عناصر الواجهة
-        self.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;  # لون خلفية الأزرار
-                color: white;               # لون النص
-                border: none;               # إزالة الحدود
-                padding: 10px;              # المسافة الداخلية
-                border-radius: 5px;         # تدوير الزوايا
-            }
-            QPushButton:hover {
-                background-color: #2980b9;  # لون الخلفية عند التحويم
-            }
-            QPushButton:disabled {
-                background-color: #bdc3c7;  # لون الخلفية عند التعطيل
-            }
+        self.setStyleSheet(self.BUTTON_STYLE + """
             QLabel {
-                color: #2c3e50;            # لون نص التسميات
-                font-size: 14px;           # حجم الخط
+                color: #2c3e50;            /* لون نص التسميات */
+                font-size: 14px;           /* حجم الخط */
             }
         """)
 
@@ -304,6 +312,11 @@ class MainWindow(QMainWindow):
         2. أنه دور اللاعب
         3. أن الموقع لم يتم استهدافه من قبل
         """
+        # Input validation
+        if not (0 <= row < self.game_controller.grid_size) or not (0 <= col < self.game_controller.grid_size):
+            self.update_status("Invalid target position!")
+            return
+
         # التحقق من حالة اللعبة ودور اللاعب
         if self.game_controller.get_game_state() != 'playing':
             self.action_label.setText("Game hasn't started yet!")
@@ -447,28 +460,27 @@ class MainWindow(QMainWindow):
         - تعطيل جميع الأزرار في شبكة AI
         - منع اللاعب من اختيار موقع للهجوم أثناء دور AI
         """
-        # تعطيل كل زر في شبكة AI
-        for row in self.ai_grid_buttons:
-            for button in row:
-                button.setEnabled(False)  # تعطيل الزر للنقر عليه
+        self.set_ai_grid_enabled(False)
 
     def _enable_ai_grid(self):
         """
         تمكين شبكة AI لدور اللاعب
         - تمكين جميع الأزرار في شبكة AI
-        - يسمح للاعب باختيار موقع للهجوم
+        - يسمح للاعب باخت��ار موقع للهجوم
         """
-        # تمكين كل زر في شبكة AI
+        self.set_ai_grid_enabled(True)
+
+    def set_ai_grid_enabled(self, enabled: bool):
         for row in self.ai_grid_buttons:
             for button in row:
-                button.setEnabled(True)  # تمكين الزر للنقر عليه
+                button.setEnabled(enabled)
 
     def confirm_end_game(self):
         """
         تأكيد إنهاء اللعبة الحالية
         - التحقق من حالة اللعبة
         - عرض رسالة تأكيد
-        - إنهاء اللعبة أو بد�� لعبة جديدة
+        - إنهاء اللعبة أو بد لعبة جديدة
         """
         # إذا كانت اللعبة منتهية بالفعل، نبدأ لعبة جديدة
         if self.game_controller.get_game_state() == 'ended':
@@ -520,7 +532,7 @@ class MainWindow(QMainWindow):
 
     def update_game_phase(self):
         """
-        تحديث واجهة المستخدم بناءً على مرحلة اللعبة الحالية
+        تحديث واجهة المستخدم بناءً على مرحلة اللعبة ال��الية
         
         المسؤوليات:
         - تحديث حالة أزرار السفن وزر الاتجاه
@@ -561,11 +573,11 @@ class MainWindow(QMainWindow):
         معالجة وضع السفن على شبكة اللاعب
         المدخلات:
             row: رقم الصف في الشبكة
-            col: رقم العمود في الشبكة
+            col: رقم العمود ف الشبكة
         الوظائف:
             - التحقق من اختيار سفينة
             - محاولة وضع السفينة في الموقع المحدد
-            - تحديث حالة الشبكة والأزرار
+            - تحديث حالة لشبكة والأزرار
             - التحقق من اكتمال وضع السفن وبدء اللعبة
         """
         # التحقق من اختيار سفينة قبل محاولة الوضع
@@ -640,7 +652,7 @@ class MainWindow(QMainWindow):
         # الحصول على حجم الشبكة الحالي
         current_size = self.game_controller.grid_size
 
-        # تحديث كل خلية في الشبكة
+        # تحديث كل خلية في الشبكة فقط إذا تغيرت حالتها
         for row in range(current_size):
             for col in range(current_size):
                 # الحصول على حالة الخلية من وحدة التحكم
@@ -648,13 +660,20 @@ class MainWindow(QMainWindow):
                 # الحصول على زر الخلية من المصفوفة
                 button = self.player_grid_buttons[row][col]
 
-                # تحديث لون الخلية حسب حالتها
+                # تحديد النمط الجديد بناءً على الحالة
+                new_style = ""
                 if state == 'ship':
-                    button.setStyleSheet(f"background-color: {SHIP_COLOR};")  # لون السفينة
+                    new_style = f"background-color: {SHIP_COLOR};"
                 elif state == 'hit':
-                    button.setStyleSheet(f"background-color: {HIT_COLOR};")  # لون الإصابة
+                    new_style = f"background-color: {HIT_COLOR};"
                 elif state == 'miss':
-                    button.setStyleSheet(f"background-color: {MISS_COLOR};")  # لون الخطأ
+                    new_style = f"background-color: {MISS_COLOR};"
+                else:
+                    new_style = f"background-color: {WATER_COLOR};"
+
+                # Update style only if it's different
+                if button.styleSheet() != new_style:
+                    button.setStyleSheet(new_style)
 
     def start_new_game(self):
         """
@@ -783,7 +802,7 @@ class MainWindow(QMainWindow):
                     QLabel {
                         font-size: 14px;
                         padding: 10px;
-                        background-color: #2ecc71;  # أخضر للاعب
+                        background-color: #2ecc71;  /* أخضر للاعب */
                         color: white;
                         border-radius: 5px;
                         margin: 5px;
@@ -794,7 +813,7 @@ class MainWindow(QMainWindow):
                     QLabel {
                         font-size: 14px;
                         padding: 10px;
-                        background-color: #e74c3c;  # أحمر للخصم
+                        background-color: #e74c3c;  /* أحمر للخصم */
                         color: white;
                         border-radius: 5px;
                         margin: 5px;
@@ -866,7 +885,8 @@ class MainWindow(QMainWindow):
                 event.ignore()  # إلغاء الإغلاق إذا اختار المستخدم "لا"
             
         except Exception as e:
-            print(f"Error during cleanup: {e}")
+            logging.error(f"Error during cleanup: {e}")
+            QMessageBox.critical(self, 'Error', 'An error occurred while closing the game.')
             event.accept()
 
     def show_confirm_dialog(self, message: str) -> bool:
