@@ -2,7 +2,6 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QGridLayout, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer
 from utils.constants import GRID_SIZE, CELL_SIZE, WATER_COLOR, SHIP_COLOR, HIT_COLOR, MISS_COLOR
-from utils.styles import BASE_STYLE, GRID_BUTTON_STYLE, CELL_STYLES, STATUS_STYLES, COLORS
 import logging
 
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,6 +37,23 @@ class MainWindow(QMainWindow):
         self.selected_attack_pos = None  # Initialize selected_attack_pos
         self.init_ui()  # بدء تهيئة واجهة المستخدم
 
+    # Extract CSS styles into constants
+    BUTTON_STYLE = """
+        QPushButton {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        QPushButton:hover {
+            background-color: #2980b9;
+        }
+        QPushButton:disabled {
+            background-color: #bdc3c7;
+        }
+    """
+
     def init_ui(self):
         """
         تهيئة واجهة المستخدم الرئيسية
@@ -65,7 +81,12 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(ai_section)  # شبكة الخصم على اليمين
 
         # تطبيق نمط التصميم على عناصر الواجهة
-        self.setStyleSheet(BASE_STYLE)
+        self.setStyleSheet(self.BUTTON_STYLE + """
+            QLabel {
+                color: #2c3e50;            /* لون نص التسميات */
+                font-size: 14px;           /* حجم الخط */
+            }
+        """)
 
     def create_grid_section(self, title: str, is_player: bool) -> QVBoxLayout:
         """
@@ -103,7 +124,7 @@ class MainWindow(QMainWindow):
                 # ضبط حجم الزر بناءً على حجم الشبكة (بحد أقصى 600 بكسل)
                 button_size = min(40, 600 // current_size)
                 button.setFixedSize(button_size, button_size)
-                button.setStyleSheet(GRID_BUTTON_STYLE)
+                button.setStyleSheet(f"background-color: {WATER_COLOR};")
 
                 # ربط الحدث المناسب بالزر حسب نوع الشبكة
                 if not is_player:
@@ -333,23 +354,32 @@ class MainWindow(QMainWindow):
         for r in range(len(self.ai_grid_buttons)):
             for c in range(len(self.ai_grid_buttons[r])):
                 cell_state = self.game_controller.get_cell_state(False, (r, c))
-                style = CELL_STYLES.get(cell_state, CELL_STYLES['water'])
-                self.ai_grid_buttons[r][c].setStyleSheet(GRID_BUTTON_STYLE + style)
+                if cell_state == 'hit':
+                    self.ai_grid_buttons[r][c].setStyleSheet(f"background-color: {HIT_COLOR};")
+                elif cell_state == 'miss':
+                    self.ai_grid_buttons[r][c].setStyleSheet(f"background-color: {MISS_COLOR};")
+                else:
+                    self.ai_grid_buttons[r][c].setStyleSheet(f"background-color: {WATER_COLOR};")
 
-        # تمييز الخلية المحددة
+        # تمييز الخلية المحددة مع الحفاظ على لونها الأصلي
         cell_state = self.game_controller.get_cell_state(False, (row, col))
-        base_style = CELL_STYLES.get(cell_state, CELL_STYLES['water'])
-        hover_style = f"""
-        QPushButton {{
-            {base_style}
-            border: 2px solid {COLORS['danger']};
-        }}
-        QPushButton:hover {{
-            {base_style}
-            border: 3px solid {COLORS['danger_dark']};
-        }}
-        """
-        self.ai_grid_buttons[row][col].setStyleSheet(hover_style)
+        base_color = {
+            'hit': HIT_COLOR,
+            'miss': MISS_COLOR,
+            'empty': WATER_COLOR,
+        }.get(cell_state, WATER_COLOR)
+
+        # تطبيق تنسيق الـ hover مع الحفاظ على اللون الأصلي
+        self.ai_grid_buttons[row][col].setStyleSheet(f"""
+            QPushButton {{
+                background-color: {base_color};
+                border: 2px solid #e74c3c;
+            }}
+            QPushButton:hover {{
+                background-color: {base_color};
+                border: 3px solid #c0392b;
+            }}
+        """)
 
     def confirm_attack(self):
         """
@@ -718,14 +748,14 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
 
-        # إنشاء أقسام ��لشبكة للاعب و AI بالحجم الجديد
+        # إنشاء أقسام الشبكة للاعب و AI بالحجم الجديد
         player_section = self.create_grid_section("Your Fleet", is_player=True)
         ai_section = self.create_grid_section("Enemy Waters", is_player=False)
 
         # إنشاء لوحة التحكم
         control_panel = self.create_control_panel()
 
-        # إضافة الأقسام إلى التخطيط ا��رئيسي
+        # إضافة الأقسام إلى التخطيط الرئيسي
         main_layout.addLayout(player_section)
         main_layout.addLayout(control_panel)
         main_layout.addLayout(ai_section)
@@ -785,12 +815,42 @@ class MainWindow(QMainWindow):
         if self.game_controller.get_game_state() == 'playing':
             current_turn = "Your Turn" if self.game_controller.current_turn == 'player' else "AI's Turn"
             self.turn_label.setText(current_turn)
-            
-            style = STATUS_STYLES['player_turn'] if self.game_controller.current_turn == 'player' else STATUS_STYLES['ai_turn']
-            self.turn_label.setStyleSheet(style)
+
+            # تغيير لون مؤشر الدور
+            if self.game_controller.current_turn == 'player':
+                self.turn_label.setStyleSheet("""
+                    QLabel {
+                        font-size: 14px;
+                        padding: 10px;
+                        background-color: #2ecc71;  /* أخضر للاعب */
+                        color: white;
+                        border-radius: 5px;
+                        margin: 5px;
+                    }
+                """)
+            else:
+                self.turn_label.setStyleSheet("""
+                    QLabel {
+                        font-size: 14px;
+                        padding: 10px;
+                        background-color: #e74c3c;  /* أحمر للخصم */
+                        color: white;
+                        border-radius: 5px;
+                        margin: 5px;
+                    }
+                """)
         else:
             self.turn_label.setText("Game not started")
-            self.turn_label.setStyleSheet(STATUS_STYLES['game_over'])
+            self.turn_label.setStyleSheet("""
+                QLabel {
+                    font-size: 14px;
+                    padding: 10px;
+                    background-color: #95a5a6;
+                    color: white;
+                    border-radius: 5px;
+                    margin: 5px;
+                }
+            """)
 
     def update_stats_display(self):
         """تحديث عرض إحصائيات اللعبة"""
