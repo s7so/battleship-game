@@ -2,6 +2,7 @@ from typing import Tuple, Optional, Set
 import random
 from .player import Player
 from .ship import Ship
+from .grid import Grid
 from utils.constants import GRID_SIZE
 
 class AIPlayer(Player):
@@ -174,7 +175,7 @@ class AIPlayer(Player):
            - متابعة الطلقات في نفس الاتجاه
            - تغيير الاتجاه عند الوصول لنهاية السفينة
         
-        3. إذا فشلت جميع المحاولات:
+        3. إذا فشلت جميع امحاولات:
            - العودة للطلقات العشوائية
         
         Returns:
@@ -344,7 +345,7 @@ class AIPlayer(Player):
 
     def _calculate_area_density(self, position: Tuple[int, int], radius: int = 2) -> float:
         """
-        حساب كثافة الأهداف المحتملة في منطقة محددة.
+        حسا كثافة الأهداف المحتملة في منطقة محددة.
         
         Args:
             position: الموقع المركزي
@@ -444,3 +445,42 @@ class AIPlayer(Player):
             if direction == 'vertical' and pos[1] == hit[1]:
                 return True
         return False
+
+    def to_dict(self) -> dict:
+        """
+        تحويل AI إلى قاموس لتسهيل عملية الحفظ
+        """
+        base_dict = super().to_dict()  # نحصل على بيانات الفئة الأساسية
+        return {
+            **base_dict,
+            'last_hit': self.last_hit,
+            'potential_targets': [(x, y) for x, y in self.potential_targets],
+            'hit_positions': list(self.hit_positions),
+            'hunting_mode': self.hunting_mode,
+            'hunt_direction': self.hunt_direction,
+            'first_hit': self.first_hit
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'AIPlayer':
+        """
+        إنشاء AI من قاموس البيانات المحفوظة
+        """
+        ai = cls()
+        ai.grid = Grid.from_dict(data['grid'])
+        ai.shots = set(data['shots'])
+        ai.remaining_ships = data['remaining_ships']
+        ai.placed_ships = {
+            name: Ship.from_dict(ship_data)
+            for name, ship_data in data['placed_ships'].items()
+        }
+        
+        # استعادة حالة AI
+        ai.last_hit = data['last_hit']
+        ai.potential_targets = [tuple(pos) for pos in data['potential_targets']]
+        ai.hit_positions = set(tuple(pos) for pos in data['hit_positions'])
+        ai.hunting_mode = data['hunting_mode']
+        ai.hunt_direction = data['hunt_direction']
+        ai.first_hit = tuple(data['first_hit']) if data['first_hit'] else None
+        
+        return ai

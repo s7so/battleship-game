@@ -1,6 +1,6 @@
 # أول حاجة بنعملها هي استيراد بعض الحاجات اللي هنحتاجها في البرنامج
 import sys  # ده بيساعدنا نتعامل مع النظام اللي شغال عليه البرنامج
-from PyQt6.QtWidgets import QApplication  # ده جزء من مكتبة PyQt6 اللي بنستخدمها عشان نعمل واجهة رسومية
+from PyQt6.QtWidgets import QApplication, QMessageBox  # ده جزء من مكتبة PyQt6 اللي بنستخدمها عشان نعمل واجهة رسومية
 from gui.main_window import MainWindow  # بنستورد النافذة الرئيسية من ملف اسمه main_window
 from gui.start_screen import StartScreen  # بنستورد شاشة البداية من ملف اسمه start_screen
 from gui.login_screen import LoginScreen  # بنستورد شاشة تسجيل الدخول من ملف اسمه login_screen
@@ -59,6 +59,59 @@ class BattleshipGame:
         
         # بنعرض شاشة البداية بعد تسجيل الدخول
         self.start_screen.show()
+
+    def save_current_game(self):
+        """
+        حفظ اللعبة الحالية
+        """
+        if self.game_controller.current_player_id:
+            save_state = self.game_controller.get_save_state()
+            if save_state:
+                success = self.db_manager.save_game_state(
+                    self.game_controller.current_player_id,
+                    save_state
+                )
+                if success:
+                    QMessageBox.information(
+                        self,
+                        "Game Saved",
+                        "Your game has been saved successfully!"
+                    )
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Save Failed",
+                        "Failed to save the game. Please try again."
+                    )
+
+    def load_saved_game(self):
+        """
+        تحميل آخر لعبة محفوظة
+        """
+        if self.game_controller.current_player_id:
+            save_state = self.db_manager.load_game_state(
+                self.game_controller.current_player_id
+            )
+            if save_state:
+                if self.game_controller.restore_save_state(save_state):
+                    self.main_window.update_display()
+                    QMessageBox.information(
+                        self,
+                        "Game Loaded",
+                        "Your saved game has been loaded successfully!"
+                    )
+                else:
+                    QMessageBox.warning(
+                        self,
+                        "Load Failed",
+                        "Failed to load the saved game."
+                    )
+            else:
+                QMessageBox.information(
+                    self,
+                    "No Save Found",
+                    "No saved game was found."
+                )
 
 
 # هنا بنحدد نقطة البداية للبرنامج

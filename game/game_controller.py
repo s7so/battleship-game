@@ -1,9 +1,12 @@
-from typing import Tuple, Optional, Dict, Any
+from typing import Tuple, Optional, Dict, Any, List
 from models.player import Player
 from models.ai_player import AIPlayer
 from models.grid import Grid
 from database.db_manager import DatabaseManager
+from models.ship import Ship, ShipOrientation
 from utils.constants import SHIPS
+import json  # لإمكان ترميز البيانات إلى JSON
+import pickle  # لاستخدام pickle للترميز والفك
 
 class GameController:
     def __init__(self, db_manager: DatabaseManager):
@@ -200,7 +203,7 @@ class GameController:
             if not isinstance(position, tuple) or len(position) != 2:
                 position = (0, 0)  # موقع افتراضي آمن
             
-            # التأكد من أن الموقع داخل حدود الشبكة
+            # التأكد من أن الموقع داخل حود الشك
             row, col = position
             if not (0 <= row < self.grid_size and 0 <= col < self.grid_size):
                 position = (0, 0)  # موقع افتراضي آمن
@@ -388,3 +391,160 @@ class GameController:
             'total_shots': player_data['total_shots'],
             'hits': player_data['total_hits']
         })
+
+    def save_game(self) -> bool:
+        """
+        حفظ حالة اللعبة الحالية
+        """
+        if not self.current_player_id or self.game_state != 'playing':
+            return False
+        
+        game_state = {
+            'player_grid': {
+                'ships': [(ship.name, ship.size, ship.position, ship.orientation.value) 
+                         for ship in self.player.grid.ships],
+                'shots': list(self.player.grid.shots),
+                'hits': list(self.player.grid.hits),
+                'misses': list(self.player.grid.misses)
+            },
+            'ai_grid': {
+                'ships': [(ship.name, ship.size, ship.position, ship.orientation.value) 
+                         for ship in self.ai_player.grid.ships],
+                'shots': list(self.ai_player.grid.shots),
+                'hits': list(self.ai_player.grid.hits),
+                'misses': list(self.ai_player.grid.misses)
+            },
+            'current_turn': self.current_turn,
+            'game_state': self.game_state,
+            'stats': self.stats,
+            'grid_size': self.grid_size
+        }
+        
+        return self.db_manager.save_game_state(self.current_player_id, game_state)
+
+    def load_game(self) -> bool:
+        """
+        تحميل آخر لعبة محفوظة
+        """
+        if not self.current_player_id:
+            return False
+        
+        saved_state = self.db_manager.load_game_state(self.current_player_id)
+        if not saved_state:
+            return False
+        
+        try:
+            # إعادة تعيين حجم الشبكة
+            self.grid_size = saved_state['grid_size']
+            
+            # إعادة إنشاء شبكة اللاعب
+            self.player = Player(self.grid_size)
+            self.player.remaining_ships = []  # تفريغ قائمة السفن المتبقية
+            
+            for ship_data in saved_state['player_grid']['ships']:
+                name, size, position, orientation = ship_data
+                ship = Ship(name, size)
+                ship.position = [tuple(pos) for pos in position]
+                ship.orientation = ShipOrientation(orientation)
+                # تحديث حالة السفينة في شبكة اللاعب
+                self.player.grid.ships.append(ship)
+                self.player.placed_ships[name] = ship  # إضافة السفينة للسفن الموضوعة
+                for pos in ship.position:
+                    self.player.grid.grid[pos[0]][pos[1]] = ship
+            
+            # استعادة الطلقات والإصابات للاعب
+            self.player.grid.shots = set(tuple(pos) for pos in saved_state['player_grid']['shots'])
+            self.player.grid.hits = set(tuple(pos) for pos in saved_state['player_grid']['hits'])
+            self.player.grid.misses = set(tuple(pos) for pos in saved_state['player_grid']['misses'])
+            self.player.shots = self.player.grid.shots.copy()  # تحديث طلقات اللاعب
+            
+            # إعادة إنشاء شبكة AI
+            self.ai_player = AIPlayer()
+            self.ai_player.remaining_ships = []  # تفريغ قائمة السفن المتبقية
+            self.ai_player.grid = Grid(self.grid_size)
+            
+            for ship_data in saved_state['ai_grid']['ships']:
+                name, size, position, orientation = ship_data
+                ship = Ship(name, size)
+                ship.position = [tuple(pos) for pos in position]
+                ship.orientation = ShipOrientation(orientation)
+                # تحديث حالة السفينة في شبكة AI
+                self.ai_player.grid.ships.append(ship)
+                self.ai_player.placed_ships[name] = ship  # إضافة السفينة للسفن الموضوعة
+                for pos in ship.position:
+                    self.ai_player.grid.grid[pos[0]][pos[1]] = ship
+            
+            # استعادة الطلقات والإصابات لل AI
+            self.ai_player.grid.shots = set(tuple(pos) for pos in saved_state['ai_grid']['shots'])
+            self.ai_player.grid.hits = set(tuple(pos) for pos in saved_state['ai_grid']['hits'])
+            self.ai_player.grid.misses = set(tuple(pos) for pos in saved_state['ai_grid']['misses'])
+            self.ai_player.shots = self.ai_player.grid.shots.copy()  # تحديث طلقات AI
+            
+            # استعادة حالة الإصابات للسفن
+            for ship in self.player.grid.ships:
+                ship.hits = [pos for pos in ship.position if pos in self.player.grid.hits]
+            
+            for ship in self.ai_player.grid.ships:
+                ship.hits = [pos for pos in ship.position if pos in self.ai_player.grid.hits]
+            
+            # استعادة حالة اللعبة
+            self.current_turn = saved_state['current_turn']
+            self.game_state = saved_state['game_state']
+            self.stats = saved_state['stats']
+            
+            return True
+        except Exception as e:
+            print(f"Error loading game: {e}")
+            return False
+
+    def _determine_orientation(self, positions: List[Tuple[int, int]]) -> str:
+        """
+        تحديد اتجاه السفينة بناءً على المواقع.
+        Args:
+            positions: قائمة المواقع (صف، عمود)
+        Returns:
+            str: 'horizontal' أو 'vertical'
+        """
+        if len(positions) < 2:
+            return 'horizontal'  # افتراضياً
+        if positions[0][0] == positions[1][0]:
+            return 'horizontal'
+        return 'vertical'
+
+    def get_save_state(self) -> dict:
+        """
+        تجهيز حالة اللعبة للحفظ
+        """
+        if not self.current_player_id or self.game_state != 'playing':
+            return None
+        
+        return {
+            'player': self.player.to_dict(),
+            'ai': self.ai_player.to_dict(),
+            'current_turn': self.current_turn,
+            'game_state': self.game_state,
+            'stats': self.stats,
+            'grid_size': self.grid_size
+        }
+
+    def restore_save_state(self, save_state: dict) -> bool:
+        """
+        استعادة حالة اللعبة من البيانات المحفوظة
+        """
+        try:
+            # استعادة حالة اللاعب
+            self.player = Player.from_dict(save_state['player'])
+            
+            # استعادة حالة AI
+            self.ai_player = AIPlayer.from_dict(save_state['ai'])
+            
+            # استعادة حالة اللعبة
+            self.current_turn = save_state['current_turn']
+            self.game_state = save_state['game_state']
+            self.stats = save_state['stats']
+            self.grid_size = save_state['grid_size']
+            
+            return True
+        except Exception as e:
+            print(f"Error restoring game state: {e}")
+            return False

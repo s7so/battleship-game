@@ -1,5 +1,5 @@
 from typing import List, Tuple, Optional, Set
-from .ship import Ship
+from .ship import Ship, ShipOrientation
 
 class Grid:
     """
@@ -61,7 +61,7 @@ class Grid:
 
         # وضع السفينة
         ship.position = positions
-        ship.orientation = orientation
+        ship.orientation = ShipOrientation.HORIZONTAL if orientation == 'horizontal' else ShipOrientation.VERTICAL
         self.ships.append(ship)
         
         # تحديث الشبكة
@@ -213,7 +213,7 @@ class Grid:
 
     def get_hits(self) -> Set[Tuple[int, int]]:
         """
-        الحصول على جميع الإصابات الناجحة
+        الحصول على جميع الإصابت الناجحة
         Returns:
             Set[Tuple[int, int]]: مجموعة من المواقع (صف، عمود)
         """
@@ -236,6 +236,36 @@ class Grid:
         self.shots.clear()
         self.hits.clear()
         self.misses.clear()
+
+    def to_dict(self) -> dict:
+        """
+        تحويل الشبكة إلى قاموس لتسهيل عملية الحفظ
+        """
+        return {
+            'size': self.size,
+            'ships': [ship.to_dict() for ship in self.ships],
+            'shots': list(self.shots),
+            'hits': list(self.hits),
+            'misses': list(self.misses)
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Grid':
+        """
+        إنشاء شبكة من قاموس البيانات المحفوظة
+        """
+        grid = cls(data['size'])
+        grid.shots = set(data['shots'])
+        grid.hits = set(data['hits'])
+        grid.misses = set(data['misses'])
+        
+        for ship_data in data['ships']:
+            ship = Ship.from_dict(ship_data)
+            grid.ships.append(ship)
+            for pos in ship.position:
+                grid.grid[pos[0]][pos[1]] = ship
+                
+        return grid
 
 # مثال على استخدام الفئة
 grid = Grid(size=15)  # إنشاء شبكة 15×15

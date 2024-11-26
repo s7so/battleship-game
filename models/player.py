@@ -1,4 +1,4 @@
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Set
 import random
 from .grid import Grid
 from .ship import Ship
@@ -22,7 +22,7 @@ class Player:
             grid_size: حجم الشبكة (ممكن تكون 10x10 أو 15x15)
         """
         self.grid = Grid(grid_size)                      # شبكة اللاعب
-        self.shots: List[Tuple[int, int]] = []          # قائمة لمتابعة الطلقات اللي اتضربت
+        self.shots: Set[Tuple[int, int]] = set()          # تغيير هذا السطر من list إلى set
         self.remaining_ships = list(SHIPS.items())       # السفن اللي لسه متحطتش على الشبكة
         self.placed_ships: Dict[str, Ship] = {}         # السفن اللي اتحطت على الشبكة
 
@@ -108,7 +108,7 @@ class Player:
             - قيمة منطقية بتوضح إذا كانت الطلقة أصابت هدف ولا لأ
             - السفينة اللي اتغرقت، لو في سفينة اتغرقت
         """
-        self.shots.append(position)
+        self.shots.add(position)
         return self.grid.receive_shot(position)
 
     def all_ships_sunk(self) -> bool:
@@ -157,7 +157,7 @@ class Player:
             return self.placed_ships[ship_name].get_positions()
         return []
 
-    def get_shots_fired(self) -> List[Tuple[int, int]]:
+    def get_shots_fired(self) -> Set[Tuple[int, int]]:
         """بنجيب قائمة بكل الطلقات اللي اللاعب ضربها."""
         return self.shots.copy()
 
@@ -166,5 +166,34 @@ class Player:
         return [pos for pos in self.shots if self.grid.get_cell_state(pos) == 'hit']
 
     def get_misses(self) -> List[Tuple[int, int]]:
-        """بنجيب قائمة بكل الطلقات اللي اللاعب فشل فيها."""
+        """بنجيب قائمة بكل الطلقات اللي اللاعب فل فيها."""
         return [pos for pos in self.shots if self.grid.get_cell_state(pos) == 'miss']
+
+    def to_dict(self) -> dict:
+        """
+        تحويل اللاعب إلى قاموس لتسهيل عملية الحفظ
+        """
+        return {
+            'grid': self.grid.to_dict(),
+            'shots': list(self.shots),
+            'remaining_ships': self.remaining_ships,
+            'placed_ships': {
+                name: ship.to_dict() 
+                for name, ship in self.placed_ships.items()
+            }
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Player':
+        """
+        إنشاء لاعب من قاموس البيانات المحفوظة
+        """
+        player = cls()
+        player.grid = Grid.from_dict(data['grid'])
+        player.shots = set(data['shots'])
+        player.remaining_ships = data['remaining_ships']
+        player.placed_ships = {
+            name: Ship.from_dict(ship_data)
+            for name, ship_data in data['placed_ships'].items()
+        }
+        return player

@@ -49,9 +49,6 @@ class Ship:
         هنا بنسجل ضربة على السفينة
         بنرجع True لو الضربة كانت في مكان من السفينة ومكانش مضروب قبل كده
         """
-        if not self.position:
-            return False
-            
         if position in self.position and position not in self.hits:
             self.hits.append(position)
             return True
@@ -120,3 +117,26 @@ class Ship:
         """بنعمل تمثيل نصي للسفينة يوضح حالتها"""
         status = "SUNK" if self.is_sunk() else f"Health: {100 - self.get_damage_percentage()}%"
         return f"{self.name} ({self.size}) - {status}"
+
+    def to_dict(self) -> dict:
+        """
+        تحويل السفينة إلى قاموس لتسهيل عملية الحفظ
+        """
+        return {
+            'name': self.name,
+            'size': self.size,
+            'position': self.position,
+            'orientation': self.orientation.value,
+            'hits': self.hits
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'Ship':
+        """
+        إنشاء سفينة من قاموس البيانات المحفوظة
+        """
+        ship = cls(data['name'], data['size'])
+        ship.position = data['position']
+        ship.orientation = ShipOrientation(data['orientation'])
+        ship.hits = data['hits']
+        return ship

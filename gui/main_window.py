@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
                              QPushButton, QLabel, QGridLayout, QMessageBox)
 from PyQt6.QtCore import Qt, QTimer
 from utils.constants import GRID_SIZE, CELL_SIZE, WATER_COLOR, SHIP_COLOR, HIT_COLOR, MISS_COLOR
+from models.ship import ShipOrientation
 import logging
 
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -56,37 +57,140 @@ class MainWindow(QMainWindow):
 
     def init_ui(self):
         """
-        تهيئة واجهة المستخدم الرئيسية
-        - تعيين عنوان النافذة وحجمها الأدنى
-        - إنشاء التخطيط الرئيسي والأقسام الثلاثة
-        - تطبيق نمط التصميم على عناصر الواجهة
+        تهيئة واجهة المستخدم وتصميمها
         """
-        # تعيين عنوان النافذة وحجمها الأدنى المناسب للعرض
-        self.setWindowTitle('Battleship Game')
-        self.setMinimumSize(1200, 600)
-
-        # إنشاء العنصر المركزي والتخطيط الرئيسي
-        central_widget = QWidget()  # إنشاء عنصر مركزي جديد
-        self.setCentralWidget(central_widget)  # تعيينه كعنصر مركزي للنافذة
-        main_layout = QHBoxLayout(central_widget)  # إنشاء تخطيط أفقي للعنصر المركزي
-
-        # إنشاء الأقسام الثلاثة الرئيسية للواجهة
-        player_section = self.create_grid_section("Your Fleet", is_player=True)  # قسم شبكة اللاعب
-        ai_section = self.create_grid_section("Enemy Waters", is_player=False)  # قسم شبكة الخصم
-        control_panel = self.create_control_panel()  # لوحة التحكم المركزية
-
-        # إضافة الأقسام بالترتيب للتخطيط الرئيسي
-        main_layout.addLayout(player_section)  # شبكة اللاعب على اليسار
-        main_layout.addLayout(control_panel)  # لوحة التحكم في الوسط
-        main_layout.addLayout(ai_section)  # شبكة الخصم على اليمين
-
-        # تطبيق نمط التصميم على عناصر الواجهة
-        self.setStyleSheet(self.BUTTON_STYLE + """
-            QLabel {
-                color: #2c3e50;            /* لون نص التسميات */
-                font-size: 14px;           /* حجم الخط */
+        # تعيين عنوان النافذة وحجمها الأدنى
+        self.setWindowTitle("Battleship Game")
+        self.setMinimumSize(1200, 800)  # زيادة الحجم الأدنى للنافذة
+        
+        # إنشاء العنصر المركزي
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
+        # إنشاء التخطيط الرئيسي للعنصر المركزي
+        main_layout = QHBoxLayout(central_widget)
+        main_layout.setSpacing(20)  # زيادة المسافة بين العناصر
+        
+        # إنشاء الأقسام الثلاثة
+        player_section = self.create_grid_section("Your Fleet", is_player=True)
+        control_section = QVBoxLayout()
+        ai_section = self.create_grid_section("Enemy Waters", is_player=False)
+        
+        # تنسيق قسم التحكم
+        control_section.setSpacing(15)
+        control_section.setContentsMargins(20, 20, 20, 20)
+        
+        # إضافة الأزرار إلى قسم التحكم
+        # زر اللعبة الجديدة
+        new_game_btn = QPushButton("New Game")
+        new_game_btn.setFixedSize(200, 50)
+        new_game_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #2ecc71;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #27ae60;
             }
         """)
+        control_section.addWidget(new_game_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # زر Fire
+        self.fire_btn = QPushButton("Fire!")
+        self.fire_btn.setFixedSize(200, 50)
+        self.fire_btn.setEnabled(False)
+        self.fire_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 16px;
+                font-weight: bold;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+            QPushButton:disabled {
+                background-color: #95a5a6;
+            }
+        """)
+        control_section.addWidget(self.fire_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # زر حفظ اللعبة
+        save_btn = QPushButton("Save Game")
+        save_btn.setFixedSize(200, 50)
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f1c40f;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #d4ac0d;
+            }
+        """)
+        control_section.addWidget(save_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # زر تحميل اللعبة
+        load_btn = QPushButton("Load Game")
+        load_btn.setFixedSize(200, 50)
+        load_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #9b59b6;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #8e44ad;
+            }
+        """)
+        control_section.addWidget(load_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # زر إنهاء اللعبة
+        end_btn = QPushButton("End Game")
+        end_btn.setFixedSize(200, 50)
+        end_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e67e22;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                font-size: 14px;
+                padding: 10px;
+            }
+            QPushButton:hover {
+                background-color: #d35400;
+            }
+        """)
+        control_section.addWidget(end_btn, alignment=Qt.AlignmentFlag.AlignCenter)
+        
+        # إضافة مسافة مرنة في النهاية
+        control_section.addStretch()
+        
+        # ربط الأزرار بالوظائف المناسبة
+        new_game_btn.clicked.connect(self.start_new_game)
+        self.fire_btn.clicked.connect(self.confirm_attack)
+        save_btn.clicked.connect(self.save_game)
+        load_btn.clicked.connect(self.load_game)
+        end_btn.clicked.connect(self.confirm_end_game)
+        
+        # إضافة الأقسام الثلاثة إلى التخطيط الرئيسي
+        main_layout.addLayout(player_section)
+        main_layout.addLayout(control_section)
+        main_layout.addLayout(ai_section)
 
     def create_grid_section(self, title: str, is_player: bool) -> QVBoxLayout:
         """
@@ -280,6 +384,36 @@ class MainWindow(QMainWindow):
         """)
         game_controls.addWidget(self.fire_btn)
 
+        # زضافة زر حفظ اللعبة
+        save_game_btn = QPushButton("Save Game")
+        save_game_btn.setMinimumSize(200, 50)
+        save_game_btn.clicked.connect(self.save_game)
+        save_game_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f1c40f;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #d4ac0d;
+            }
+        """)
+        game_controls.addWidget(save_game_btn)
+
+        # زر تحميل اللعبة
+        load_game_btn = QPushButton("Load Game")
+        load_game_btn.setMinimumSize(200, 50)
+        load_game_btn.clicked.connect(self.load_game)
+        load_game_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #8e44ad;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #71368a;
+            }
+        """)
+        game_controls.addWidget(load_game_btn)
+
         # زر إنهاء اللعبة
         self.end_game_btn = QPushButton("End Game")
         self.end_game_btn.clicked.connect(self.confirm_end_game)
@@ -350,7 +484,7 @@ class MainWindow(QMainWindow):
         """
         تمييز الخلية المحددة مع الحفاظ على لونها الأصلي
         """
-        # إعادة تعيين تنسيق كل الخلايا لحالتها الأصلية
+        # ادة تعيين تنسيق كل الخلايا لحاتها الأصلية
         for r in range(len(self.ai_grid_buttons)):
             for c in range(len(self.ai_grid_buttons[r])):
                 cell_state = self.game_controller.get_cell_state(False, (r, c))
@@ -497,7 +631,7 @@ class MainWindow(QMainWindow):
 
     def confirm_end_game(self):
         """
-        تأكيد إنهاء اللعبة الحالية
+        تأكيد نهاء اللعبة الحالية
         - التحقق من حالة اللعبة
         - عرض رسالة تأكيد
         - إنهاء اللعبة أو بد لعبة جديدة
@@ -660,12 +794,12 @@ class MainWindow(QMainWindow):
             self.update_player_grid()  # تحديث عرض شبكة اللاعب
             for btn in self.ship_buttons.values():  # تعطيل جميع أزرار اختيار السفن
                 btn.setEnabled(False)
-            self.start_game()  # بدء اللعبة بعد وضع السفن
+            self.start_game()  # بدء اللعبة بعد وضع اسفن
 
     def update_player_grid(self):
         """
         تحديث عرض شبكة اللاعب
-        - يحصل على حجم الشبكة الحالي
+        - يحصل على حجم الشبكة لحالي
         - يتحقق من حالة كل خلية (سفينة، إصابة، خطأ)
         - يحدث لون الخلية حسب حالتها
         """
@@ -713,7 +847,7 @@ class MainWindow(QMainWindow):
         if reply == QMessageBox.StandardButton.Yes:
             # إعادة تعيين حالة اللعبة
             self.game_controller.start_new_game()
-            # إعادة تعيين واجهة المستخدم
+            # إعادة تعيين واجهة لمستخدم
             self.reset_ui()
             # تحديث رسالة الحالة
             self.update_status("Place your ships!")
@@ -918,3 +1052,64 @@ class MainWindow(QMainWindow):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         return reply == QMessageBox.StandardButton.Yes
+
+    def save_game(self):
+        """
+        دالة لحفظ حالة اللعبة الحالية.
+        """
+        success = self.game_controller.save_game()
+        if success:
+            QMessageBox.information(self, "Save Game", "Game has been saved successfully!")
+        else:
+            QMessageBox.critical(self, "Save Game", "Failed to save the game. Please try again.")
+
+    def load_game(self):
+        """
+        دالة لتحميل حالة اللعبة المحفوظة.
+        """
+        success = self.game_controller.load_game()
+        if success:
+            QMessageBox.information(self, "Load Game", "Game has been loaded successfully!")
+            
+            # تحديث حالة الأزرار
+            self.fire_btn.setEnabled(True)
+            for btn in self.ship_buttons.values():
+                btn.setEnabled(False)
+            self.orientation_btn.setEnabled(False)
+            
+            # تحديث الشبكات والإحصائيات
+            self.update_player_grid()
+            self.update_ai_grid()  # تحديث شبكة AI
+            self.update_stats_display()
+            
+            # تحديث حالة اللعبة
+            if self.game_controller.current_turn == 'player':
+                self.update_status("Your turn! Select a target and press Fire!")
+            else:
+                self.update_status("AI's turn...")
+        else:
+            QMessageBox.warning(self, "Load Game", "No saved game found or failed to load.")
+
+    def update_ai_grid(self):
+        """
+        تحديث شبكة AI
+        """
+        current_size = self.game_controller.grid_size
+        for row in range(current_size):
+            for col in range(current_size):
+                button = self.ai_grid_buttons[row][col]
+                state = self.game_controller.get_cell_state(False, (row, col))
+                
+                if state == 'hit':
+                    button.setStyleSheet(f"background-color: {HIT_COLOR};")
+                elif state == 'miss':
+                    button.setStyleSheet(f"background-color: {MISS_COLOR};")
+                else:
+                    button.setStyleSheet(f"background-color: {WATER_COLOR};")
+                
+                # تمكين/تعطيل الزر بناءً على حالة اللعبة
+                button.setEnabled(
+                    self.game_controller.game_state == 'playing' and 
+                    self.game_controller.current_turn == 'player' and
+                    state not in ['hit', 'miss']
+                )

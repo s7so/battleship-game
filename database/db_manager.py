@@ -1,6 +1,8 @@
 import sqlite3
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+import json
+import pickle  # لاستخدام pickle للترميز والفك
 
 class DatabaseError(Exception):
     """استثناء مخصص للتعامل مع أخطاء قاعدة البيانات"""
@@ -143,6 +145,18 @@ class DatabaseManager:
                     )
                 ''')
                 
+                # إنشاء جدول لحفظ حالة اللعبة
+                self.conn.execute('''
+                    CREATE TABLE IF NOT EXISTS saved_games (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        player_id INTEGER NOT NULL,
+                        game_state BLOB NOT NULL,
+                        saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (player_id) REFERENCES players(id)
+                            ON DELETE CASCADE
+                    )
+                ''')
+                
         # لو حصل أي مشكلة
         except sqlite3.Error as e:
             # هنطبع الخطأ ونرميه للي استدعى الوظيفة
@@ -151,7 +165,7 @@ class DatabaseManager:
 
     def create_player(self, name: str) -> int:
         """
-        الوظيفة دي بتعمل لاعب جديد في قاعدة البيانات وبترجع رقمه.
+        الوظيفة دي بتعمل لا��ب جديد في قاعدة البيانات وبترجع رقمه.
         
         بتاخد:
             name: اسم اللاعب اللي عايزين نضيفه
@@ -230,10 +244,10 @@ class DatabaseManager:
                     'name': بيانات_اللاعب[1],                  # اسم اللاعب
                     'games_played': بيانات_اللاعب[2] or 0,     # عدد المرات اللي لعبها
                     'games_won': بيانات_اللاعب[3] or 0,        # عدد المرات اللي كسب فيها
-                    'total_shots': بيانات_اللاعب[4] or 0,      # عدد الطلقات الكلي
-                    'total_hits': بيانات_اللاعب[5] or 0,       # عدد الإصابات
-                    'accuracy': بيانات_اللاعب[6] or 0.0,       # نسبة الدقة
-                    'created_at': بيانات_اللاعب[7] or None,    # وقت إنشاء الحساب
+                    'total_shots': بيانات_اللاعب[4] or 0,      # عدد الطلقات اللي ضربها
+                    'total_hits': بيانات_اللاعب[5] or 0,       # عدد المرات اللي صاب فيها
+                    'accuracy': بيانات_اللاعب[6] or 0.0,       # نسبة التصويب بتاعته
+                    'created_at': بيانات_اللاعب[7] or None,    # وقت ما عمل حساب
                     'last_played': بيانات_اللاعب[8] or None    # آخر مرة لعب فيها
                 }
             
@@ -349,7 +363,7 @@ class DatabaseManager:
                     'total_hits': row[3],       # عدد الإصابات الكلي
                     'accuracy': row[4],         # نسبة التصويب
                     'best_game': row[5],        # أفضل لعبة (أقل عدد ضربات)
-                    'worst_game': row[6],       # أسوأ لعبة (أكبر عدد ضربات)
+                    'worst_game': row[6],       # أسوأ لعبة (أكبر عدد ضربا)
                     'avg_duration': row[7],     # متوسط وقت اللعب
                     'quick_wins': row[8],       # عدد المرات اللي كسب فيها بسرعة
                     'win_rate': row[9],         # نسبة الفوز
@@ -503,7 +517,7 @@ class DatabaseManager:
 
     def get_ship_statistics(self, player_id: int) -> Dict[str, Any]:
         """
-        الدالة دي بتجيب معلومات عن أداء السفن بتاعة اللاعب في كل المعارك اللي لعبها
+        الدالة دي بجيب معلومات عن أداء السفن بتاعة اللاعب في كل المعارك اللي لعبها
         
         بتاخد:
             player_id: رقم اللاعب في قاعدة البيانات
@@ -676,7 +690,7 @@ class DatabaseManager:
         """
         الوظيفة دي بتحاول تعيد الاتصال بقاعدة البيانات لو الاتصال اتقطع
         
-        خطوات الوظيفة:
+        خطوا الوظيفة:
         1. بتتأكد الأول إن الاتصال مقطوع فعلاً
         2. لو مقطوع، بتحاول توصل تاني
         3. لو محاولة الاتصال فشلت، بتظهر رسالة خطأ
@@ -696,7 +710,7 @@ class DatabaseManager:
         # لو حصل أي مشكلة في الاتصال
         except sqlite3.Error as e:
             # نظهر رسالة خطأ للمستخدم
-            raise DatabaseError(f"تعذر إعادة الاتصال: {str(e)}")
+            raise DatabaseError(f"تعذر عادة الاتصال: {str(e)}")
 
     def backup_database(self, backup_path: str):
         """
@@ -832,7 +846,7 @@ class DatabaseManager:
             
         except Exception as e:
             # لو حصل أي مشكلة نطبعها ونرجع قائمة فاضية
-            print(f"خطأ في جلب إنجازات اللاعب: {e}")
+            print(f"خطأ في جلب ��نجازات اللاعب: {e}")
             return []
 
     def get_player_progress(self, player_id: int) -> Dict[str, Any]:
@@ -853,7 +867,7 @@ class DatabaseManager:
         """
         try:
             # نجيب معلومات اللعب بتاعت اللاعب ده من قاعدة البيانات
-            # هنجمع المعلومات دي حسب كل يوم لعب فيه
+            # هنجمع المعلومات دي حسب كل يوم لعب في
             cursor = self.conn.execute('''
                 WITH GameProgress AS (
                     SELECT 
@@ -951,3 +965,163 @@ class DatabaseManager:
         except ZeroDivisionError:
             # لو حصل قسمة على صفر نرجع صفر
             return 0.0
+
+    def save_game(self, player_id: int, game_state: bytes):
+        """
+        حفظ حالة اللعبة في قاعدة البيانات.
+        
+        Args:
+            player_id (int): معرف اللاعب.
+            game_state (bytes): بيانات حالة اللعبة (مثلاً Pickle).
+        """
+        try:
+            with self.conn:
+                self.conn.execute('''
+                    INSERT INTO saved_games (player_id, game_state)
+                    VALUES (?, ?)
+                ''', (player_id, game_state))
+        except sqlite3.Error as e:
+            raise DatabaseError(f"فشل في حفظ اللعبة: {str(e)}")
+
+    def load_game(self, player_id: int) -> Optional[bytes]:
+        """
+        تحميل آخر حالة لعبة محفوظة للاعب.
+        
+        Args:
+            player_id (int): معرف اللاعب.
+        
+        Returns:
+            Optional[bytes]: بيانات حالة اللعبة أو None إذا لم توجد.
+        """
+        try:
+            cursor = self.conn.execute('''
+                SELECT game_state FROM saved_games
+                WHERE player_id = ?
+                ORDER BY saved_at DESC
+                LIMIT 1
+            ''', (player_id,))
+            row = cursor.fetchone()
+            return row[0] if row else None
+        except sqlite3.Error as e:
+            raise DatabaseError(f"فشل في تحميل اللعبة: {str(e)}")
+
+    def migrate_saved_games_table(self):
+        """
+        يضمن أن جدول saved_games يتوافق مع الشكل الجديد المخصص للحفظ.
+        """
+        try:
+            with self.conn:
+                # تحقق مما إذا كان 'player_grid' موجودًا
+                cursor = self.conn.execute("PRAGMA table_info(saved_games);")
+                columns = [row[1] for row in cursor.fetchall()]
+                if 'player_grid' in columns:
+                    # البدء بعملية الهجرة
+                    self.conn.execute("PRAGMA foreign_keys=off;")
+                    self.conn.execute("BEGIN TRANSACTION;")
+                    
+                    # إنشاء جدول جديد بدون 'player_grid'
+                    self.conn.execute("""
+                        CREATE TABLE saved_games_new (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            player_id INTEGER NOT NULL,
+                            game_state BLOB NOT NULL,
+                            saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            FOREIGN KEY (player_id) REFERENCES players(id)
+                                ON DELETE CASCADE
+                        )
+                    """)
+                    
+                    # نسخ البيانات من الجدول القديم إلى الجديد
+                    self.conn.execute("""
+                        INSERT INTO saved_games_new (id, player_id, game_state, saved_at)
+                        SELECT id, player_id, game_state, saved_at FROM saved_games
+                    """)
+                    
+                    # حذف الجدول القديم
+                    self.conn.execute("DROP TABLE saved_games;")
+                    
+                    # إعادة تسمية الجدول الجديد إلى الاسم الأصلي
+                    self.conn.execute("ALTER TABLE saved_games_new RENAME TO saved_games;")
+                    
+                    self.conn.execute("COMMIT;")
+                    self.conn.execute("PRAGMA foreign_keys=on;")
+                    
+                    print("تم تحديث جدول saved_games بنجاح.")
+        except sqlite3.Error as e:
+            print(f"خطأ أثناء هجرة جدول saved_games: {e}")
+            raise DatabaseError(f"خطأ في هجرة جدول saved_games: {str(e)}")
+    
+    def create_tables(self):
+        """
+        إنشاء الجداول الأساسية في قاعدة البيانات.
+        """
+        try:
+            with self.conn:
+                # ... existing table creations ...
+
+                # إنشاء جدول لحفظ حالة اللعبة (التعديل الجديد)
+                self.conn.execute('''
+                    CREATE TABLE IF NOT EXISTS saved_games (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        player_id INTEGER NOT NULL,
+                        game_state BLOB NOT NULL,
+                        saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (player_id) REFERENCES players(id)
+                            ON DELETE CASCADE
+                    )
+                ''')
+                    
+        except sqlite3.Error as e:
+            print(f"في مشكلة حصلت وإحنا بنعمل الجداول: {e}")
+            raise DatabaseError(f"مقدرناش نعمل الجداول: {str(e)}")
+    
+    def __init__(self, db_path: str = 'battleship.db'):
+        """
+        تهيئة مدير قاعدة البيانات مع الاتصال وعمل الجداول.
+        """
+        self.conn = sqlite3.connect(db_path)
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        self.create_tables()
+        self.migrate_saved_games_table()  # تشغيل الهجرة بعد إنشاء الجداول
+
+    def save_game_state(self, player_id: int, game_state: dict) -> bool:
+        """
+        حفظ حالة اللعبة في قاعدة البيانات
+        """
+        try:
+            # تحويل حالة اللعبة إلى JSON
+            game_state_json = json.dumps(game_state)
+            
+            # حذف أي لعبة محفوظة سابقة لنفس اللاعب
+            self.conn.execute(
+                "DELETE FROM saved_games WHERE player_id = ?",
+                (player_id,)
+            )
+            
+            # حفظ اللعبة الجديدة
+            self.conn.execute(
+                "INSERT INTO saved_games (player_id, game_state) VALUES (?, ?)",
+                (player_id, game_state_json)
+            )
+            self.conn.commit()
+            return True
+        except Exception as e:
+            print(f"Error saving game state: {e}")
+            return False
+
+    def load_game_state(self, player_id: int) -> Optional[dict]:
+        """
+        تحميل حالة اللعبة المحفوظة
+        """
+        try:
+            result = self.conn.execute(
+                "SELECT game_state FROM saved_games WHERE player_id = ?",
+                (player_id,)
+            ).fetchone()
+            
+            if result:
+                return json.loads(result[0])
+            return None
+        except Exception as e:
+            print(f"Error loading game state: {e}")
+            return None
