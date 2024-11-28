@@ -87,7 +87,7 @@ class AIPlayer(Player):
    ------------------------------------
    - متوسط عدد الطلقات لإغراق سفينة
    - نسبة الإصابات الناجحة
-   - كفاءة التتبع بع الإصابة الأو��ى
+   - كفاءة التتبع بع الإصابة الأوى
    - سرعة اتشاف وإغراق السفن
 
    7. التحسينات المستمرة (Continuous Improvements)
@@ -174,27 +174,27 @@ class AIPlayer(Player):
                 self.hunting_mode = True
                 self.first_hit = position
                 
-            # Add adjacent positions in all directions as potential targets
+            # Add adjacent positions as potential targets
             row, col = position
             for dr, dc in [(0,1), (1,0), (0,-1), (-1,0)]:
                 new_pos = (row + dr, col + dc)
-                while self._is_valid_target(new_pos):
-                    if new_pos not in self.potential_targets:
-                        self.potential_targets.append(new_pos)
-                    new_pos = (new_pos[0] + dr, new_pos[1] + dc)
+                if self._is_valid_target(new_pos) and new_pos not in self.shots:
+                    self.potential_targets.append(new_pos)
         else:
-            # If miss and in hunting mode, remove this direction from consideration
+            # If miss and in hunting mode, update hunt pattern
             if self.hunting_mode:
-                self._update_hunt_pattern(position)
+                self._update_hunt_pattern_for_miss(position)
+            else:
+                self._update_general_hunt_pattern()
 
-    def _update_hunt_pattern(self, miss_pos: Tuple[int, int]):
-        """Update hunting pattern based on miss position"""
+    def _update_hunt_pattern_for_miss(self, miss_position: Tuple[int, int]):
+        """Update hunting pattern when a shot misses"""
         if not self.first_hit:
             return
         
         # Determine direction of miss relative to first hit
-        row_diff = miss_pos[0] - self.first_hit[0] 
-        col_diff = miss_pos[1] - self.first_hit[1]
+        row_diff = miss_position[0] - self.first_hit[0] 
+        col_diff = miss_position[1] - self.first_hit[1]
         
         # Remove potential targets in the miss direction
         self.potential_targets = [
@@ -206,6 +206,16 @@ class AIPlayer(Player):
         # If all directions exhausted, reset hunting mode
         if not self.potential_targets:
             self._reset_hunting()
+
+    def _update_general_hunt_pattern(self):
+        """Update general hunting pattern based on shot history"""
+        if len(self.shots) > 10:  # After enough shots
+            hit_ratio = len(self.hit_positions) / len(self.shots)
+            
+            if hit_ratio < 0.2:  # If hit rate is low
+                self._switch_to_focused_search()
+            elif hit_ratio > 0.4:  # If hit rate is high
+                self._concentrate_on_current_area()
 
     def _add_adjacent_targets(self, position: Tuple[int, int]):
         """
@@ -291,7 +301,7 @@ class AIPlayer(Player):
         الاستراتيجية:
         1. اختيار من قائمة الأهداف المتملة
         2. التحقق من صلاحية الهدف
-        3. العود�� للطلقات العشوائية إذا لم تتوفر أهداف
+        3. العود للطلقات العشوائية إذا لم تتوفر أهداف
         
         Returns:
             Tuple[int, int]: موقع الهدف المختار
@@ -353,7 +363,7 @@ class AIPlayer(Player):
             # حساب مجموع الكثافات
             total_density = sum(density for _, density in sectors)
             if total_density > 0:
-                # اختيار منطقة عشوائياً مع ترجيح المناطق ذات الكثافة الأعلى
+                # اختيار نطقة عشوائياً مع ترجيح المناطق ذات الكثافة الأعلى
                 r = random.random() * total_density
                 current = 0
                 for positions, density in sectors:
@@ -361,7 +371,7 @@ class AIPlayer(Player):
                     if r <= current:
                         return random.choice(positions)
 
-        # إذا لم نجد مواقع منابة، نختار أي موقع متاح
+        # إذا لم ند مواقع منابة، نختار أي موقع متاح
         available = [
             (r, c)
             for r in range(grid_size)
@@ -468,7 +478,7 @@ class AIPlayer(Player):
         1. المسافة من الإصابات السابقة
         2. نط توزيع الإصابات
         3. احتمالية وجود سفن في المنطقة
-        4. حجم السفن المتبقية
+        4. حج السفن المتبقية
         5. المسافة من حدود الشبكة
         
         Returns:
@@ -585,7 +595,7 @@ class AIPlayer(Player):
 
     def _get_next_directional_shot(self) -> Optional[Tuple[int, int]]:
         """
-        تحديد الطلقة التالية في الاتجاه الحالي للتتبع.
+        تحديد اطلقة التالية في الاتجاه الحالي للتتبع.
         يأخذ في الاعتبار:
         - حدود الشبكة
         - الطلقات السابقة
@@ -600,14 +610,14 @@ class AIPlayer(Player):
         last_hit = hits[-1]
         row, col = last_hit
 
-        # تحديد المواقع المحتملة بناءً على الاتجاه
+        # تحديد المواقع المحتملة باءً على الاتجاه
         if self.hunt_direction == 'horizontal':
             # محاولة الضرب يميناً ويساراً
             possible = [
                 (row, col + 1),  # يمين
                 (row, col - 1),  # يسار
                 (row, min(hit[1] for hit in hits) - 1),  # أقصى يسار
-                (row, max(hit[1] for hit in hits) + 1)  # أقصى يمين
+                (row, max(hit[1] for hit in hits) + 1)  # أقى يمين
             ]
         else:  # vertical
             # محاولة الضرب أعلى وأسفل
@@ -668,15 +678,11 @@ class AIPlayer(Player):
             return False
 
     def _reset_hunting(self):
-        """إعادة تعيين متغيرات وضع التتبع"""
+        """Reset hunting mode state"""
         self.hunting_mode = False
-        self.hunt_direction = None
         self.first_hit = None
-        self.hit_positions.clear()
-        self.potential_targets = [
-            pos for pos in self.potential_targets
-            if pos not in self.shots
-        ]
+        self.hunt_direction = None
+        self.potential_targets = []
 
     def _is_adjacent_to_sunk_ship(self, pos: Tuple[int, int], ship: Optional[Ship]) -> bool:
         """
@@ -903,7 +909,7 @@ class AIPlayer(Player):
                 )
                 probability_map[row][col] *= (edge_distance + 1) / (grid_size / 2)
 
-        # تصفير احتمالية المواقع المستخدمة
+        # تصفي احتمالية المواقع المستخدمة
         for row, col in self.shots:
             probability_map[row][col] = 0.0
 
@@ -933,33 +939,42 @@ class AIPlayer(Player):
                 self._concentrate_on_current_area()
 
     def _switch_to_focused_search(self):
-        """
-        التحول إلى نمط بحث أكثر تركيزاً
-        """
-        # تقسيم الشبكة إلى مناطق أصغر
-        probability_map = self._get_ship_probability_map()
-
-        # البحث عن المناطق ذات الاحتمالية الأعلى
-        high_probability_areas = []
+        """Switch to a more focused search pattern"""
+        # Clear existing potential targets
+        self.potential_targets = []
+        
+        # Get probability map
+        prob_map = self._get_ship_probability_map()
+        
+        # Add high probability positions to potential targets
         for row in range(self.grid.size):
             for col in range(self.grid.size):
-                if probability_map[row][col] > 1.5:
-                    high_probability_areas.append((row, col))
-
-        # إضافة المناطق ذات الأولوية العالية إلى الأهداف المحتملة
-        self.potential_targets.extend(high_probability_areas)
+                if prob_map[row][col] > 1.5 and (row, col) not in self.shots:
+                    self.potential_targets.append((row, col))
+        
+        # Sort targets by probability
+        self.potential_targets.sort(
+            key=lambda pos: prob_map[pos[0]][pos[1]], 
+            reverse=True
+        )
 
     def _concentrate_on_current_area(self):
-        """
-        التركيز على المنطقة الحالية التي تحقق نجاحاً
-        """
-        if self.last_hit:
-            row, col = self.last_hit
-            # توسيع نطاق البحث حول آخر إصابة
-            for r in range(max(0, row - 3), min(self.grid.size, row + 4)):
-                for c in range(max(0, col - 3), min(self.grid.size, col + 4)):
-                    if self._is_valid_target((r, c)):
-                        self.potential_targets.append((r, c))
+        """Continue searching in the current successful area"""
+        if not self.hit_positions:
+            return
+        
+        # Get the most recent hit
+        last_hit = list(self.hit_positions)[-1]
+        row, col = last_hit
+        
+        # Add adjacent positions in a wider radius
+        for r in range(max(0, row - 2), min(self.grid.size, row + 3)):
+            for c in range(max(0, col - 2), min(self.grid.size, col + 3)):
+                pos = (r, c)
+                if (pos not in self.shots and 
+                    pos not in self.potential_targets and 
+                    self._is_valid_target(pos)):
+                    self.potential_targets.append(pos)
 
     def _optimize_target_selection(self, targets: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
         """
@@ -978,7 +993,7 @@ class AIPlayer(Player):
             row, col = pos
             value = probability_map[row][col]
 
-            # زيادة القيمة إذا كان الموقع في نفس خط الإصابات السابقة
+            # زيادة القيمة إذا كان الموقع في نفس ط الإصابات السابقة
             if self.hunt_direction:
                 if self._is_in_line_with_hits(pos, self.hunt_direction):
                     value *= 2.0
